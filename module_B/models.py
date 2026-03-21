@@ -68,3 +68,25 @@ class CoreAuditState(Base):
     state_key: Mapped[str] = mapped_column(String(100), primary_key=True)
     state_value: Mapped[str] = mapped_column(Text, nullable=False)
     updated_at: Mapped[DateTime] = mapped_column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class UserPassword(Base):
+    __tablename__ = "UserPasswords"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column("UserID", Integer, nullable=False, unique=True, index=True)
+    login_username: Mapped[str] = mapped_column("LoginUsername", String(80), nullable=False, unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column("PasswordHash", String(255), nullable=False)
+    is_active: Mapped[bool] = mapped_column("IsActive", Boolean, nullable=False, default=True, index=True)
+    created_at: Mapped[DateTime] = mapped_column("CreatedAt", DateTime, nullable=False, server_default=func.now())
+    updated_at: Mapped[DateTime] = mapped_column("LastModifiedAt", DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class DocPassword(Base):
+    __tablename__ = "DocPasswords"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    doc_id: Mapped[int] = mapped_column("DocID", Integer, nullable=False, unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column("PasswordHash", String(255), nullable=False)
+    created_at: Mapped[DateTime] = mapped_column("CreatedAt", DateTime, nullable=False, server_default=func.now())
+    updated_at: Mapped[DateTime] = mapped_column("LastModifiedAt", DateTime, nullable=False, server_default=func.now(), onupdate=func.now())

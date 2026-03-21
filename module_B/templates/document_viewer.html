@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Viewer - SafeDocs</title>
+    <style>
+        :root {
+            --bg: #f6fbff;
+            --panel: #ffffff;
+            --ink: #0b2333;
+            --muted: #4f6676;
+            --accent: #006d77;
+            --line: #cfe2ee;
+            --danger: #b3261e;
+            --ok: #1f7a4a;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(900px 420px at -10% -10%, #d9f0ff 0%, transparent 65%),
+                radial-gradient(800px 420px at 110% 10%, #d5ffe4 0%, transparent 65%),
+                var(--bg);
+            min-height: 100vh;
+            padding: 1rem;
+        }
+
+        .shell {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: grid;
+            gap: 1rem;
+        }
+
+        .header,
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 1rem;
+            box-shadow: 0 10px 24px rgba(22, 57, 79, 0.08);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+        }
+
+        h1, h2 {
+            margin: 0;
+        }
+
+        h1 {
+            font-size: 1.3rem;
+        }
+
+        h2 {
+            font-size: 1.1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .meta {
+            color: var(--muted);
+            margin-top: 0.25rem;
+            font-size: 0.92rem;
+        }
+
+        .actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn,
+        button {
+            text-decoration: none;
+            border: none;
+            border-radius: 10px;
+            padding: 0.62rem 0.85rem;
+            background: var(--accent);
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn.secondary,
+        button.secondary {
+            background: var(--muted);
+        }
+
+        .message {
+            margin-top: 0.7rem;
+            padding: 0.75rem;
+            border-radius: 10px;
+            border: 1px solid transparent;
+            display: none;
+        }
+
+        .message.show {
+            display: block;
+        }
+
+        .message.error {
+            background: #ffebee;
+            border-color: #ef9a9a;
+            color: var(--danger);
+        }
+
+        .message.success {
+            background: #e9f8ef;
+            border-color: #b6e3c7;
+            color: var(--ok);
+        }
+
+        .meta-grid {
+            display: grid;
+            gap: 0.7rem;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .field {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 0.65rem;
+            background: #fbfeff;
+        }
+
+        .label {
+            color: var(--muted);
+            font-size: 0.84rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .value {
+            font-weight: 600;
+            word-break: break-word;
+        }
+
+        .viewer-pane {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 0.8rem;
+            height: 460px;
+            background: #f9fcff;
+        }
+
+        .viewer-pane iframe {
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+
+        .form-grid {
+            display: grid;
+            gap: 0.7rem;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .form-group {
+            display: grid;
+            gap: 0.4rem;
+        }
+
+        .form-group label {
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .full {
+            grid-column: 1 / -1;
+        }
+
+        input,
+        select {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 0.58rem;
+            font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+        }
+
+        .checkbox {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+        }
+
+        .btn.danger {
+            background: var(--danger);
+        }
+
+        .btn.danger:hover {
+            background: #8b1a14;
+        }
+
+        /* Delete Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.4);
+        }
+
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: var(--panel);
+            padding: 2rem;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            box-shadow: 0 10px 24px rgba(22, 57, 79, 0.15);
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: var(--danger);
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--muted);
+        }
+
+        .close-btn:hover {
+            color: var(--ink);
+        }
+
+        @media (max-width: 860px) {
+            .meta-grid,
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .viewer-pane {
+                height: 320px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="shell">
+        <section class="header">
+            <div>
+                <h1>Document Viewer</h1>
+                <div class="meta">Signed in as {{ username }} ({{ role }})</div>
+            </div>
+            <div class="actions">
+                {% if can_delete %}
+                <button class="btn danger" id="deleteDocBtn" type="button">Delete Document</button>
+                {% endif %}
+                <a class="btn secondary" href="/documents">Back to Documents</a>
+                <a class="btn secondary" href="/dashboard">Dashboard</a>
+            </div>
+        </section>
+
+        {% if error_message %}
+        <section class="panel">
+            <h2>Cannot Open Document</h2>
+            <div class="message error show">{{ error_message }}</div>
+        </section>
+        {% elif document and requires_password %}
+        <section class="panel">
+            <h2>Protected Document</h2>
+            <p>This document is password protected. Enter the password to continue.</p>
+            {% if password_error %}
+            <div class="message error show">{{ password_error }}</div>
+            {% endif %}
+            <form method="post" action="/documents/{{ document.DocID }}/view" style="display: grid; gap: 0.7rem; max-width: 460px;">
+                <label for="document_password">Document Password</label>
+                <input id="document_password" name="document_password" type="password" required placeholder="Enter document password">
+                <button type="submit">Open Document</button>
+            </form>
+        </section>
+        {% elif document %}
+        <section class="panel">
+            <h2>{{ document.DocName }}</h2>
+            <div class="meta-grid">
+                <div class="field"><div class="label">Doc ID</div><div class="value">{{ document.DocID }}</div></div>
+                <div class="field"><div class="label">Owner User ID</div><div class="value">{{ document.OwnerUserID }}</div></div>
+                <div class="field"><div class="label">Organization ID</div><div class="value">{{ document.OrganizationID }}</div></div>
+                <div class="field"><div class="label">Confidentiality</div><div class="value">{{ document.ConfidentialityLevel }}</div></div>
+                <div class="field"><div class="label">File Path</div><div class="value">{{ document.FilePath }}</div></div>
+                <div class="field"><div class="label">Your Access</div><div class="value">{% if document.IsOwner %}Owner{% elif document.CanEdit %}Edit{% else %}View{% endif %}</div></div>
+            </div>
+
+            <div class="viewer-pane">
+                <iframe src="{{ document.FilePath }}" title="Document preview"></iframe>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>Modify Document</h2>
+            {% if can_edit %}
+            <p>Update metadata below. Changes will be saved through the secure API.</p>
+            <div id="updateMessage" class="message"></div>
+            <form id="updateForm" style="display: grid; gap: 0.8rem;">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="docName">Document Name</label>
+                        <input id="docName" type="text" value="{{ document.DocName }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="docSize">Document Size</label>
+                        <input id="docSize" type="number" min="1" value="{{ document.DocSize }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="numPages">Number of Pages</label>
+                        <input id="numPages" type="number" min="1" value="{{ document.NumberOfPages }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="ownerId">Owner User ID</label>
+                        <input id="ownerId" type="number" min="1" value="{{ document.OwnerUserID }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="orgId">Organization ID</label>
+                        <input id="orgId" type="number" min="1" value="{{ document.OrganizationID }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="confLevel">Confidentiality Level</label>
+                        <input id="confLevel" type="text" value="{{ document.ConfidentialityLevel }}" required>
+                    </div>
+                    <div class="form-group full">
+                        <label for="filePath">File Path</label>
+                        <input id="filePath" type="text" value="{{ document.FilePath }}" required>
+                    </div>
+                    <div class="form-group full checkbox">
+                        <input id="isProtected" type="checkbox" {% if document.IsPasswordProtected %}checked{% endif %}>
+                        <label for="isProtected" style="margin: 0;">Password protect this document</label>
+                    </div>
+                    <div class="form-group full">
+                        <label for="docPassword">Document Password (required when enabling password protection)</label>
+                        <input id="docPassword" type="password" placeholder="Leave blank to keep existing password">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 0.55rem; flex-wrap: wrap;">
+                    <button type="submit">Save Changes</button>
+                    <button type="button" class="secondary" onclick="window.location.reload()">Reset</button>
+                </div>
+            </form>
+            {% else %}
+            <div class="message show" style="background: #eef7f0; border: 1px solid #cde5d2; color: #24613a;">
+                You have view-only access for this document.
+            </div>
+            {% endif %}
+        </section>
+        {% endif %}
+    </main>
+
+    {% if document and can_edit and not requires_password %}
+    <script>
+        const form = document.getElementById('updateForm');
+        const message = document.getElementById('updateMessage');
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const payload = {
+                DocName: document.getElementById('docName').value.trim(),
+                DocSize: Number(document.getElementById('docSize').value),
+                NumberOfPages: Number(document.getElementById('numPages').value),
+                FilePath: document.getElementById('filePath').value.trim(),
+                ConfidentialityLevel: document.getElementById('confLevel').value.trim(),
+                OwnerUserID: Number(document.getElementById('ownerId').value),
+                OrganizationID: Number(document.getElementById('orgId').value),
+                IsPasswordProtected: document.getElementById('isProtected').checked,
+            };
+
+            const candidatePassword = document.getElementById('docPassword').value;
+            if (candidatePassword) {
+                payload.DocumentPassword = candidatePassword;
+            }
+
+            message.className = 'message show';
+            message.textContent = 'Saving changes...';
+
+            try {
+                const response = await fetch('/api/documents/{{ document.DocID }}', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload),
+                });
+
+                const contentType = response.headers.get('content-type');
+                const isJson = contentType && contentType.includes('application/json');
+
+                if (isJson) {
+                    const data = await response.json();
+                    if (response.ok) {
+                        message.className = 'message success show';
+                        message.textContent = 'Document updated successfully.';
+                    } else {
+                        message.className = 'message error show';
+                        message.textContent = data.error || 'Failed to update document.';
+                    }
+                } else {
+                    const text = await response.text();
+                    message.className = 'message error show';
+                    if (response.ok) {
+                        message.textContent = 'Document updated successfully.';
+                    } else {
+                        console.error('Server error response:', text);
+                        message.textContent = `Server error (${response.status}). Check console for details.`;
+                    }
+                }
+            } catch (error) {
+                message.className = 'message error show';
+                message.textContent = 'Network error: ' + error.message;
+                console.error('Update request error:', error);
+            }
+        });
+    </script>
+    {% endif %}
+
+    <!-- Delete Confirmation Modal -->
+    {% if can_delete %}
+    <div id="deleteModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Delete Document?</h2>
+                <button class="close-btn" id="closeDeleteBtn">&times;</button>
+            </div>
+            <p>Are you sure you want to delete "<strong>{{ document.DocName }}</strong>" (ID: {{ document.DocID }})? This action cannot be undone.</p>
+            <div style="display: flex; gap: 0.55rem; margin-top: 1.5rem;">
+                <button id="confirmDeleteBtn" class="btn danger">Delete</button>
+                <button id="cancelDeleteBtn" class="btn secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const deleteModal = document.getElementById('deleteModal');
+        const deleteDocBtn = document.getElementById('deleteDocBtn');
+        const closeDeleteBtn = document.getElementById('closeDeleteBtn');
+        const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+        const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+
+        if (deleteDocBtn) {
+            deleteDocBtn.addEventListener('click', () => {
+                deleteModal.classList.add('show');
+            });
+
+            closeDeleteBtn.addEventListener('click', () => {
+                deleteModal.classList.remove('show');
+            });
+
+            cancelDeleteBtn.addEventListener('click', () => {
+                deleteModal.classList.remove('show');
+            });
+
+            deleteModal.addEventListener('click', (event) => {
+                if (event.target === deleteModal) {
+                    deleteModal.classList.remove('show');
+                }
+            });
+
+            confirmDeleteBtn.addEventListener('click', async () => {
+                confirmDeleteBtn.textContent = 'Deleting...';
+                confirmDeleteBtn.disabled = true;
+
+                try {
+                    const response = await fetch('/api/documents/{{ document.DocID }}', {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                    });
+
+                    // Check if response is JSON
+                    const contentType = response.headers.get('content-type');
+                    const isJson = contentType && contentType.includes('application/json');
+                    
+                    if (isJson) {
+                        const data = await response.json();
+                        if (response.ok) {
+                            deleteModal.classList.remove('show');
+                            alert('Document deleted successfully. Redirecting...');
+                            window.location.href = '/documents';
+                        } else {
+                            const errorMsg = data.error || 'Failed to delete document.';
+                            alert(errorMsg);
+                            confirmDeleteBtn.textContent = 'Delete';
+                            confirmDeleteBtn.disabled = false;
+                        }
+                    } else {
+                        // Response is HTML or other non-JSON format (likely an error page)
+                        const text = await response.text();
+                        const errorMsg = response.ok 
+                            ? 'Document deleted successfully. Redirecting...' 
+                            : `Server error (${response.status}): ${text.substring(0, 100)}`;
+                        
+                        if (response.ok) {
+                            alert(errorMsg);
+                            window.location.href = '/documents';
+                        } else {
+                            console.error('Delete error response:', text);
+                            alert('Failed to delete document. Server returned: ' + response.status);
+                            confirmDeleteBtn.textContent = 'Delete';
+                            confirmDeleteBtn.disabled = false;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Delete request error:', error);
+                    alert('Error deleting document: ' + error.message);
+                    confirmDeleteBtn.textContent = 'Delete';
+                    confirmDeleteBtn.disabled = false;
+                }
+            });
+        }
+    </script>
+    {% endif %}
+</body>
+</html>

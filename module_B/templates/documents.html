@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accessible Documents - SafeDocs</title>
+    <style>
+        :root {
+            --bg: #f6fbff;
+            --panel: #ffffff;
+            --ink: #0b2333;
+            --muted: #4f6676;
+            --accent: #006d77;
+            --line: #cfe2ee;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(900px 420px at -10% -10%, #d9f0ff 0%, transparent 65%),
+                radial-gradient(800px 420px at 110% 10%, #d5ffe4 0%, transparent 65%),
+                var(--bg);
+            min-height: 100vh;
+            padding: 1rem;
+        }
+
+        .shell {
+            max-width: 1140px;
+            margin: 0 auto;
+            display: grid;
+            gap: 1rem;
+        }
+
+        .header,
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 1rem;
+            box-shadow: 0 10px 24px rgba(22, 57, 79, 0.08);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.3rem;
+        }
+
+        .meta {
+            color: var(--muted);
+            font-size: 0.92rem;
+            margin-top: 0.25rem;
+        }
+
+        .actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn {
+            text-decoration: none;
+            border: none;
+            border-radius: 10px;
+            padding: 0.62rem 0.85rem;
+            background: var(--accent);
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn.secondary {
+            background: var(--muted);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.92rem;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 0.65rem;
+            border-bottom: 1px solid var(--line);
+        }
+
+        th {
+            background: #f0f7fc;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 0.18rem 0.45rem;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            border: 1px solid #b8e8ec;
+            background: #e7f8fa;
+            color: #00545b;
+        }
+
+        .empty {
+            color: var(--muted);
+            font-style: italic;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.4);
+        }
+
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: var(--panel);
+            padding: 2rem;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            box-shadow: 0 10px 24px rgba(22, 57, 79, 0.15);
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            font-size: 1.1rem;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--muted);
+        }
+
+        .close-btn:hover {
+            color: var(--ink);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.8rem;
+            margin-bottom: 1rem;
+        }
+
+        .form-grid.full {
+            grid-template-columns: 1fr;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group.full {
+            grid-column: 1 / -1;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            margin-bottom: 0.35rem;
+            font-size: 0.9rem;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 0.5rem;
+            font-family: inherit;
+            font-size: 0.9rem;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(0, 109, 119, 0.1);
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .message {
+            padding: 0.75rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .message.show {
+            display: block;
+        }
+
+        .message.success {
+            background: #eef7f0;
+            border: 1px solid #cde5d2;
+            color: #24613a;
+        }
+
+        .message.error {
+            background: #fbecec;
+            border: 1px solid #f4c5c5;
+            color: #8f2323;
+        }
+
+        @media (max-width: 860px) {
+            .panel {
+                overflow-x: auto;
+            }
+
+            table {
+                min-width: 860px;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="shell">
+        <section class="header">
+            <div>
+                <h1>Accessible Documents</h1>
+                <div class="meta">Signed in as {{ username }} ({{ role }})</div>
+            </div>
+            <div class="actions">
+                <button class="btn" id="createDocBtn" type="button">+ Create Document</button>
+                <a class="btn secondary" href="/dashboard">Back to Dashboard</a>
+                <button class="btn secondary" id="logoutButton" type="button">Logout</button>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2 style="margin-top: 0;">Documents You Can Open</h2>
+            {% if documents %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>DocID</th>
+                        <th>Name</th>
+                        <th>Owner</th>
+                        <th>Org</th>
+                        <th>Confidentiality</th>
+                        <th>Password</th>
+                        <th>Access</th>
+                        <th>Open</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in documents %}
+                    <tr>
+                        <td>{{ doc.DocID }}</td>
+                        <td>{{ doc.DocName }}</td>
+                        <td>{{ doc.OwnerUserID }}</td>
+                        <td>{{ doc.OrganizationID }}</td>
+                        <td>{{ doc.ConfidentialityLevel }}</td>
+                        <td>
+                            {% if doc.IsPasswordProtected %}
+                            <span class="tag">Protected</span>
+                            {% else %}
+                            <span class="tag" style="background: #eef7f0; border-color: #cde5d2; color: #24613a;">Open</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if doc.IsOwner %}
+                            <span class="tag" style="background: #f8f0ff; border-color: #e4cffd; color: #5a2d90;">Owner</span>
+                            {% elif doc.CanEdit %}
+                            <span class="tag" style="background: #eef7f0; border-color: #cde5d2; color: #24613a;">Edit</span>
+                            {% elif doc.CanView %}
+                            <span class="tag">View</span>
+                            {% else %}
+                            <span class="tag" style="background: #fbecec; border-color: #f4c5c5; color: #8f2323;">None</span>
+                            {% endif %}
+                        </td>
+                        <td><a href="/documents/{{ doc.DocID }}/view">View</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="empty">No accessible documents were found for this account.</p>
+            {% endif %}
+        </section>
+    </main>
+
+    <!-- Create Document Modal -->
+    <div id="createModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 style="margin: 0;">Create New Document</h2>
+                <button class="close-btn" id="closeModalBtn">&times;</button>
+            </div>
+            <div id="createMessage" class="message"></div>
+            <form id="createForm" style="display: grid; gap: 0.8rem;">
+                <div class="form-grid">
+                    <div class="form-group full">
+                        <label for="newDocName">Document Name *</label>
+                        <input id="newDocName" type="text" placeholder="Enter document name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newDocSize">Document Size (bytes)</label>
+                        <input id="newDocSize" type="number" min="1" value="1024">
+                    </div>
+                    <div class="form-group">
+                        <label for="newNumPages">Number of Pages</label>
+                        <input id="newNumPages" type="number" min="1" value="1">
+                    </div>
+                    <div class="form-group full">
+                        <label for="newFilePath">File Path</label>
+                        <input id="newFilePath" type="text" placeholder="/secure/storage/doc_####.pdf">
+                    </div>
+                    <div class="form-group full">
+                        <label for="newConfLevel">Confidentiality Level</label>
+                        <input id="newConfLevel" type="text" value="Confidentiality Level I">
+                    </div>
+                    {% if role == "Admin" %}
+                    <div class="form-group">
+                        <label for="newOwnerId">Owner User ID *</label>
+                        <input id="newOwnerId" type="number" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newOrgId">Organization ID *</label>
+                        <input id="newOrgId" type="number" min="1" required>
+                    </div>
+                    {% endif %}
+                    <div class="form-group full checkbox-group" style="grid-column: 1 / -1;">
+                        <input id="newIsProtected" type="checkbox">
+                        <label for="newIsProtected" style="margin: 0;">Password protect this document</label>
+                    </div>
+                    <div class="form-group full" id="passwordFieldGroup" style="display: none;">
+                        <label for="newDocPassword">Document Password *</label>
+                        <input id="newDocPassword" type="password" placeholder="Enter password">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 0.55rem; flex-wrap: wrap; margin-top: 0.5rem;">
+                    <button type="submit">Create Document</button>
+                    <button type="button" class="secondary" id="cancelCreateBtn">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const createModal = document.getElementById('createModal');
+        const createDocBtn = document.getElementById('createDocBtn');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const cancelCreateBtn = document.getElementById('cancelCreateBtn');
+        const createForm = document.getElementById('createForm');
+        const createMessage = document.getElementById('createMessage');
+        const newIsProtected = document.getElementById('newIsProtected');
+        const passwordFieldGroup = document.getElementById('passwordFieldGroup');
+
+        // Modal controls
+        createDocBtn.addEventListener('click', () => {
+            createModal.classList.add('show');
+            createForm.reset();
+            passwordFieldGroup.style.display = 'none';
+            createMessage.className = 'message';
+        });
+
+        closeModalBtn.addEventListener('click', () => {
+            createModal.classList.remove('show');
+        });
+
+        cancelCreateBtn.addEventListener('click', () => {
+            createModal.classList.remove('show');
+        });
+
+        createModal.addEventListener('click', (event) => {
+            if (event.target === createModal) {
+                createModal.classList.remove('show');
+            }
+        });
+
+        // Toggle password field visibility
+        newIsProtected.addEventListener('change', () => {
+            passwordFieldGroup.style.display = newIsProtected.checked ? 'flex' : 'none';
+            if (!newIsProtected.checked) {
+                document.getElementById('newDocPassword').value = '';
+            }
+        });
+
+        // Create document form submission
+        createForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const payload = {
+                DocName: document.getElementById('newDocName').value.trim(),
+                DocSize: Number(document.getElementById('newDocSize').value),
+                NumberOfPages: Number(document.getElementById('newNumPages').value),
+                FilePath: document.getElementById('newFilePath').value.trim() || `/secure/storage/doc_{{ '{' }}id{{ '}' }}.pdf`,
+                ConfidentialityLevel: document.getElementById('newConfLevel').value.trim(),
+                IsPasswordProtected: newIsProtected.checked,
+            };
+
+            {% if role == "Admin" %}
+            payload.OwnerUserID = Number(document.getElementById('newOwnerId').value);
+            payload.OrganizationID = Number(document.getElementById('newOrgId').value);
+            {% else %}
+            payload.OwnerUserID = {{ user_id }};
+            payload.OrganizationID = {{ organization_id }};
+            {% endif %}
+
+            if (newIsProtected.checked) {
+                const pwd = document.getElementById('newDocPassword').value;
+                if (!pwd.trim()) {
+                    createMessage.className = 'message error show';
+                    createMessage.textContent = 'Password is required when enabling password protection.';
+                    return;
+                }
+                payload.DocumentPassword = pwd;
+            }
+
+            createMessage.className = 'message show';
+            createMessage.textContent = 'Creating document...';
+
+            try {
+                const response = await fetch('/api/documents', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload),
+                });
+
+                const contentType = response.headers.get('content-type');
+                const isJson = contentType && contentType.includes('application/json');
+
+                if (isJson) {
+                    const data = await response.json();
+                    if (response.ok) {
+                        createMessage.className = 'message success show';
+                        createMessage.textContent = `Document created successfully (ID: ${data.DocID}). Refreshing page...`;
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    } else {
+                        createMessage.className = 'message error show';
+                        createMessage.textContent = data.error || 'Failed to create document.';
+                    }
+                } else {
+                    const text = await response.text();
+                    createMessage.className = 'message error show';
+                    if (response.ok) {
+                        createMessage.textContent = 'Document created. Refreshing...';
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    } else {
+                        console.error('Server error response:', text);
+                        createMessage.textContent = `Server error (${response.status}). Check console for details.`;
+                    }
+                }
+            } catch (error) {
+                createMessage.className = 'message error show';
+                createMessage.textContent = 'Network error: ' + error.message;
+                console.error('Create request error:', error);
+            }
+        });
+
+        document.getElementById('logoutButton').addEventListener('click', async () => {
+            const response = await fetch('/logout', { method: 'POST' });
+            if (response.ok) {
+                window.location.href = '/login';
+                return;
+            }
+            alert('Logout failed. Please retry.');
+        });
+    </script>
+</body>
+</html>

@@ -270,6 +270,38 @@
             display: block;
         }
 
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 0.9rem;
+        }
+
+        .option-card {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 0.9rem;
+            background: #fcfeff;
+        }
+
+        .option-card h3 {
+            margin: 0 0 0.35rem;
+            font-size: 1rem;
+        }
+
+        .option-card p {
+            margin: 0 0 0.7rem;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .option-card a {
+            display: inline-block;
+            background: var(--accent);
+            color: #fff;
+            padding: 0.55rem 0.75rem;
+            border-radius: 9px;
+        }
+
         @media (max-width: 760px) {
             .panel {
                 overflow-x: auto;
@@ -364,9 +396,27 @@
             </div>
         </div>
 
+        {% if role != "Admin" %}
+        <section class="panel">
+            <h2>Choose Your Action</h2>
+            <div class="options-grid">
+                <article class="option-card">
+                    <h3>View Other Members</h3>
+                    <p>Browse member portfolios available in your organization.</p>
+                    <a href="/members">Open Members</a>
+                </article>
+                <article class="option-card">
+                    <h3>View Documents</h3>
+                    <p>Open only the documents you are permitted to access.</p>
+                    <a href="/documents">Open Documents</a>
+                </article>
+            </div>
+        </section>
+        {% endif %}
+
+        {% if role == "Admin" %}
         <section class="panel">
             <h2>Member Portfolio Access</h2>
-            {% if role == "Admin" %}
             <div class="search-bar">
                 <form style="display: flex; gap: 0.5rem; flex: 1;" onsubmit="handleSearch(event)">
                     <input type="text" id="searchInput" name="search" placeholder="Search by name, email, or user ID..." value="{{ search }}">
@@ -374,7 +424,6 @@
             </form>
                 <a href="/dashboard" style="padding: 0.65rem 0.9rem; background: var(--muted); color: #fff; border-radius: 10px; text-decoration: none;">Reset</a>
             </div>
-            {% endif %}
             {% if members %}
             <table>
                 <thead>
@@ -431,6 +480,7 @@
             <p class="empty">No member profile is currently visible to this account.</p>
             {% endif %}
         </section>
+        {% endif %}
     </main>
 
     <script>

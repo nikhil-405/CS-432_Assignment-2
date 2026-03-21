@@ -16,7 +16,7 @@ This module implements a local Flask web app and API layer for SafeDocs, with:
 - `module_B/__init__.py`: app factory + bootstrap
 - `module_B/routes.py`: UI/API routes
 - `module_B/auth.py`: auth/session validation decorators
-- `module_B/models.py`: core module tables
+- `module_B/models.py`: core module tables + password tables (`UserPasswords`, `DocPasswords`)
 - `module_B/database.py`: DB session and bootstrap helpers
 - `module_B/audit.py`: audit file + table logging helpers
 - `module_B/templates/`: UI templates
@@ -75,6 +75,7 @@ Open:
 - `GET /api/documents`
 - `GET /api/documents/<doc_id>`
 - `POST /api/documents`
+  - If `IsPasswordProtected` is true, include `DocumentPassword` in payload.
 - `PUT /api/documents/<doc_id>`
 - `DELETE /api/documents/<doc_id>`
 - `POST /api/permissions/grant`
@@ -82,6 +83,18 @@ Open:
 - `GET /api/audit/logs`
 - `GET /api/audit/unauthorized`
 - `GET /api/optimization/explain/documents`
+
+## Additional UI Pages
+
+- `GET /members`: member list page (regular users can browse members in their organization).
+- `GET /documents`: table of accessible documents with per-row "View" action.
+- `GET/POST /documents/<doc_id>/view`: password-gated document viewer page (prompts for password if protected).
+
+## Document Access Behavior
+
+- Regular users can list/open only documents they own or have explicit permission for (`View`, `Edit`, `Delete`).
+- Document updates are allowed for users with owner/edit access.
+- Protected documents require password entry in the viewer page before opening.
 
 ## SQL Optimization Workflow
 
@@ -95,3 +108,4 @@ Open:
 
 - If MySQL is down, the app starts in degraded mode and DB-backed endpoints return a DB unavailable response.
 - Project-specific tables from Task 1 are expected in the same database (for example: `Users`, `Documents`, `Permissions`, `Logs`).
+- Project user logins are validated through `UserPasswords` when available; Core admin login remains supported.
