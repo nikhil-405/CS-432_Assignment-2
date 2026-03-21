@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Member Portfolio</title>
+    <style>
+        :root {
+            --bg: #fff9f4;
+            --panel: #ffffff;
+            --ink: #2e1f15;
+            --muted: #665145;
+            --line: #ead6c8;
+            --accent: #934f2c;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+            background:
+                radial-gradient(850px 440px at 0% -5%, #ffe5c9 0%, transparent 60%),
+                radial-gradient(900px 500px at 100% 110%, #ffe8ef 0%, transparent 60%),
+                var(--bg);
+            color: var(--ink);
+            display: grid;
+            place-items: center;
+            padding: 1rem;
+        }
+
+        .card {
+            width: min(620px, 100%);
+            border: 1px solid var(--line);
+            background: var(--panel);
+            border-radius: 14px;
+            box-shadow: 0 10px 24px rgba(77, 46, 28, 0.12);
+            padding: 1rem 1.2rem;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.3rem;
+        }
+
+        .sub {
+            margin: 0.35rem 0 1rem;
+            color: var(--muted);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.6rem;
+        }
+
+        .field {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 0.55rem 0.65rem;
+            background: #fffcf9;
+        }
+
+        .label {
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-bottom: 0.2rem;
+        }
+
+        .value {
+            font-weight: 600;
+            word-break: break-word;
+        }
+
+        .actions {
+            margin-top: 1rem;
+            display: flex;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+        }
+
+        a {
+            text-decoration: none;
+            background: var(--accent);
+            color: #fff;
+            padding: 0.55rem 0.8rem;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        button {
+            border: none;
+            padding: 0.55rem 0.8rem;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+
+        button.danger {
+            background: #d62828;
+            color: #fff;
+        }
+
+        button.danger:hover {
+            background: #a01f23;
+        }
+
+        .message {
+            padding: 0.8rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            font-weight: 500;
+            display: none;
+        }
+
+        .message.success {
+            background: #d4f4dd;
+            color: #1b5e20;
+            border: 1px solid #81c784;
+            display: block;
+        }
+
+        .message.error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef5350;
+            display: block;
+        }
+
+        @media (max-width: 640px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <section class="card">
+        <h1>Member Portfolio</h1>
+        <p class="sub">Authenticated profile view controlled by RBAC policy.</p>
+
+        <div id="message" class="message"></div>
+
+        <div class="grid">
+            <div class="field"><div class="label">User ID</div><div class="value">{{ member.UserID }}</div></div>
+            <div class="field"><div class="label">Name</div><div class="value">{{ member.Name }}</div></div>
+            <div class="field"><div class="label">Email</div><div class="value">{{ member.Email }}</div></div>
+            <div class="field"><div class="label">Age</div><div class="value">{{ member.Age }}</div></div>
+            <div class="field"><div class="label">Role</div><div class="value">{{ member.RoleName or member.RoleID }}</div></div>
+            <div class="field"><div class="label">Organization</div><div class="value">{{ member.OrgName or member.OrganizationID }}</div></div>
+            <div class="field"><div class="label">Status</div><div class="value">{{ member.AccountStatus }}</div></div>
+        </div>
+
+        <div class="actions">
+            <a href="/dashboard">Back to Dashboard</a>
+            {% if is_admin and core_user_id %}
+            <button class="danger" data-core-user-id="{{ core_user_id }}" data-member-name="{{ member.Name }}" onclick="deactivateMember(this)">Deactivate Member</button>
+            {% endif %}
+        </div>
+    </section>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:5000';
+
+        async function deactivateMember(button) {
+            const coreUserId = button.getAttribute('data-core-user-id');
+            const memberName = button.getAttribute('data-member-name');
+
+            if (!confirm(`Are you sure you want to deactivate "${memberName}"? They will no longer be able to log in.`)) {
+                return;
+            }
+
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = 'Deactivating member...';
+            messageDiv.classList.remove('success', 'error');
+            messageDiv.style.display = 'block';
+
+            try {
+                const response = await fetch(`${API_BASE}/api/members/${coreUserId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    messageDiv.classList.add('success');
+                    messageDiv.textContent = `✓ Member "${memberName}" has been deactivated. Redirecting...`;
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 2000);
+                } else {
+                    messageDiv.classList.add('error');
+                    messageDiv.textContent = `✗ Error: ${data.error || 'Failed to deactivate member'}`;
+                }
+            } catch (error) {
+                messageDiv.classList.add('error');
+                messageDiv.textContent = `✗ Request failed: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Member Management - SafeDocs</title>
+    <style>
+        :root {
+            --bg: #f6fbff;
+            --panel: #ffffff;
+            --ink: #0b2333;
+            --muted: #4f6676;
+            --accent: #006d77;
+            --danger: #d62828;
+            --line: #cfe2ee;
+            --success: #2a9d8f;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(950px 400px at -10% -10%, #d9f0ff 0%, transparent 65%),
+                radial-gradient(800px 430px at 110% 10%, #d5ffe4 0%, transparent 65%),
+                var(--bg);
+            min-height: 100vh;
+            padding: 1rem;
+        }
+
+        .shell {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            gap: 1rem;
+        }
+
+        .header,
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 1rem;
+            box-shadow: 0 10px 24px rgba(22, 57, 79, 0.08);
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.35rem;
+        }
+
+        h2 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+            color: var(--ink);
+        }
+
+        .meta {
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        button {
+            border: none;
+            border-radius: 10px;
+            padding: 0.65rem 0.9rem;
+            background: var(--accent);
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #00515c;
+        }
+
+        button.danger {
+            background: var(--danger);
+        }
+
+        button.danger:hover {
+            background: #b01f23;
+        }
+
+        button.success {
+            background: var(--success);
+        }
+
+        button.success:hover {
+            background: #238070;
+        }
+
+        .form-group {
+            display: grid;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        label {
+            font-weight: 600;
+            color: var(--ink);
+            font-size: 0.9rem;
+        }
+
+        input,
+        select {
+            padding: 0.6rem;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+            font-size: 0.95rem;
+            color: var(--ink);
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(0, 109, 119, 0.1);
+        }
+
+        .form-section {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        @media (max-width: 640px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .button-group {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .message {
+            padding: 0.8rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            font-weight: 500;
+            display: none;
+        }
+
+        .message.success {
+            background: #d4f4dd;
+            color: #1b5e20;
+            border: 1px solid #81c784;
+            display: block;
+        }
+
+        .message.error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef5350;
+            display: block;
+        }
+
+        .message.loading {
+            background: #e7f4fd;
+            color: #0d5ba3;
+            border: 1px solid #64b5f6;
+            display: block;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            overflow: hidden;
+            border-radius: 10px;
+            font-size: 0.92rem;
+            margin-top: 1rem;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 0.65rem;
+            border-bottom: 1px solid var(--line);
+        }
+
+        th {
+            background: #f0f7fc;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: #fafcfe;
+        }
+
+        .actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        button.delete-btn {
+            padding: 0.4rem 0.6rem;
+            font-size: 0.85rem;
+            background: var(--danger);
+            white-space: nowrap;
+        }
+
+        button.delete-btn:hover {
+            background: #b01f23;
+        }
+
+        .empty {
+            color: var(--muted);
+            font-style: italic;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .nav-buttons button {
+            background: var(--accent);
+        }
+
+        .nav-buttons button.secondary {
+            background: var(--muted);
+        }
+
+        .nav-buttons button.secondary:hover {
+            background: #37474f;
+        }
+    </style>
+</head>
+<body>
+    <main class="shell">
+        <section class="header">
+            <div>
+                <h1>Member Management</h1>
+                <div class="meta">Admin Panel - Manage platform users</div>
+            </div>
+            <div class="nav-buttons">
+                <button class="secondary" onclick="window.location.href='/dashboard'">← Back to Dashboard</button>
+                <button onclick="logout()">Logout</button>
+            </div>
+        </section>
+
+        <!-- Create New Member Section -->
+        <section class="panel">
+            <h2>Create New Member</h2>
+            <div id="createMessage" class="message"></div>
+
+            <form id="createForm" onsubmit="handleCreateMember(event)">
+                <div class="form-section">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="username">Username *</label>
+                            <input 
+                                type="text" 
+                                id="username" 
+                                name="username" 
+                                placeholder="Enter username" 
+                                required
+                            >
+                        </div>
+                        <div class="form-group">
+                            <label for="password">Password *</label>
+                            <input 
+                                type="password" 
+                                id="password" 
+                                name="password" 
+                                placeholder="Enter password" 
+                                required
+                            >
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="role">Role *</label>
+                            <select id="role" name="role" required>
+                                <option value="">-- Select Role --</option>
+                                <option value="Regular">Regular User</option>
+                                <option value="Admin">Admin</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="project_user_id">Project User ID *</label>
+                            <input 
+                                type="number" 
+                                id="project_user_id" 
+                                name="project_user_id" 
+                                placeholder="Link to Users table ID" 
+                                required
+                            >
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="groups">Groups (comma-separated)</label>
+                        <input 
+                            type="text" 
+                            id="groups" 
+                            name="groups" 
+                            placeholder="e.g., default, developers" 
+                            value="default"
+                        >
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button type="submit" class="success">Create Member</button>
+                    <button type="button" onclick="document.getElementById('createForm').reset()">Clear</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Active Members List Section -->
+        <section class="panel">
+            <h2>Active Members</h2>
+            <div id="membersMessage" class="message"></div>
+            <div id="membersContainer">
+                <div class="empty">Loading members...</div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:5000';
+        let adminToken = null;
+
+        // Get token on page load
+        window.addEventListener('load', async () => {
+            const token = sessionStorage.getItem('session_token') || getCookie('session_token');
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+            adminToken = token;
+            loadMembers();
+        });
+
+        function getCookie(name) {
+            const nameEQ = name + "=";
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                cookie = cookie.trim();
+                if (cookie.indexOf(nameEQ) === 0) {
+                    return cookie.substring(nameEQ.length);
+                }
+            }
+            return null;
+        }
+
+        async function handleCreateMember(e) {
+            e.preventDefault();
+            const messageDiv = document.getElementById('createMessage');
+            
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const role = document.getElementById('role').value;
+            const project_user_id = parseInt(document.getElementById('project_user_id').value);
+            const groups = document.getElementById('groups').value
+                .split(',')
+                .map(g => g.trim())
+                .filter(g => g);
+
+            if (!username || !password || !role || !project_user_id) {
+                messageDiv.classList.remove('loading', 'success');
+                messageDiv.classList.add('error');
+                messageDiv.textContent = 'Please fill all required fields.';
+                return;
+            }
+
+            messageDiv.classList.remove('error', 'success');
+            messageDiv.classList.add('loading');
+            messageDiv.textContent = 'Creating member...';
+
+            try {
+                const response = await fetch(`${API_BASE}/api/members`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${adminToken}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user: username,
+                        password: password,
+                        role: role,
+                        project_user_id: project_user_id,
+                        groups: groups,
+                    }),
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    messageDiv.classList.remove('loading', 'error');
+                    messageDiv.classList.add('success');
+                    messageDiv.textContent = `✓ Member "${username}" created successfully (ID: ${data.core_user_id})`;
+                    document.getElementById('createForm').reset();
+                    setTimeout(loadMembers, 1000);
+                } else {
+                    messageDiv.classList.remove('loading', 'success');
+                    messageDiv.classList.add('error');
+                    messageDiv.textContent = `✗ Error: ${data.error || 'Failed to create member'}`;
+                }
+            } catch (error) {
+                messageDiv.classList.remove('loading', 'success');
+                messageDiv.classList.add('error');
+                messageDiv.textContent = `✗ Request failed: ${error.message}`;
+            }
+        }
+
+        async function loadMembers() {
+            const container = document.getElementById('membersContainer');
+            const messageDiv = document.getElementById('membersMessage');
+
+            try {
+                // Fetch from the API endpoint - this should work since admin is logged in
+                const response = await fetch(`${API_BASE}/api/members/list`, {
+                    headers: {
+                        'Authorization': `Bearer ${adminToken}`,
+                    },
+                });
+
+                if (response.status === 404) {
+                    // Endpoint doesn't exist, we'll show a basic message
+                    container.innerHTML = '<p class="empty">Member list not available via API yet.</p>';
+                    return;
+                }
+
+                if (!response.ok) {
+                    container.innerHTML = '<p class="empty">Unable to load members.</p>';
+                    return;
+                }
+
+                const data = await response.json();
+                renderMembersTable(data.members || []);
+            } catch (error) {
+                container.innerHTML = '<p class="empty">Error loading members.</p>';
+            }
+        }
+
+        function renderMembersTable(members) {
+            const container = document.getElementById('membersContainer');
+
+            if (!members || members.length === 0) {
+                container.innerHTML = '<p class="empty">No members found.</p>';
+                return;
+            }
+
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Core User ID</th>
+                            <th>Username</th>
+                            <th>Role</th>
+                            <th>Active</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            members.forEach(member => {
+                const isActive = member.is_active ? 'Yes' : 'No';
+                const createdAt = member.created_at ? new Date(member.created_at).toLocaleDateString() : 'N/A';
+                
+                html += `
+                    <tr>
+                        <td>${member.id}</td>
+                        <td>${member.username}</td>
+                        <td>${member.role}</td>
+                        <td>${isActive}</td>
+                        <td>${createdAt}</td>
+                        <td>
+                            <div class="actions">
+                                <button class="delete-btn" onclick="deleteMember(${member.id}, '${member.username}')">
+                                    Delete
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        async function deleteMember(coreUserId, username) {
+            if (!confirm(`Are you sure you want to deactivate member "${username}"? They will no longer be able to log in.`)) {
+                return;
+            }
+
+            const messageDiv = document.getElementById('membersMessage');
+            messageDiv.classList.remove('error', 'success');
+            messageDiv.classList.add('loading');
+            messageDiv.textContent = `Deactivating "${username}"...`;
+
+            try {
+                const response = await fetch(`${API_BASE}/api/members/${coreUserId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${adminToken}`,
+                    },
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    messageDiv.classList.remove('loading', 'error');
+                    messageDiv.classList.add('success');
+                    messageDiv.textContent = `✓ Member "${username}" has been deactivated`;
+                    setTimeout(loadMembers, 1000);
+                } else {
+                    messageDiv.classList.remove('loading', 'success');
+                    messageDiv.classList.add('error');
+                    messageDiv.textContent = `✗ Error: ${data.error || 'Failed to deactivate member'}`;
+                }
+            } catch (error) {
+                messageDiv.classList.remove('loading', 'success');
+                messageDiv.classList.add('error');
+                messageDiv.textContent = `✗ Request failed: ${error.message}`;
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch('/logout', { method: 'POST' });
+            } catch (e) {
+                // ignore
+            }
+            sessionStorage.removeItem('session_token');
+            window.location.href = '/login';
+        }
+    </script>
+</body>
+</html>

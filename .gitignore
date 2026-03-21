@@ -3,3 +3,7 @@ details.md
 .env
 .code
 .vscode
+context/
+venv/
+__pycache__/
+*.pyc

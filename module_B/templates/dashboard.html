@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeDocs Dashboard</title>
+    <style>
+        :root {
+            --bg: #f6fbff;
+            --panel: #ffffff;
+            --ink: #0b2333;
+            --muted: #4f6676;
+            --accent: #006d77;
+            --line: #cfe2ee;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(950px 400px at -10% -10%, #d9f0ff 0%, transparent 65%),
+                radial-gradient(800px 430px at 110% 10%, #d5ffe4 0%, transparent 65%),
+                var(--bg);
+            min-height: 100vh;
+            padding: 1rem;
+        }
+
+        .shell {
+            max-width: 1040px;
+            margin: 0 auto;
+            display: grid;
+            gap: 1rem;
+        }
+
+        .header,
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 1rem;
+            box-shadow: 0 10px 24px rgba(22, 57, 79, 0.08);
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.35rem;
+        }
+
+        .meta {
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        .count {
+            display: inline-block;
+            margin-left: 0.5rem;
+            background: #e7f8fa;
+            color: #00545b;
+            border: 1px solid #b8e8ec;
+            padding: 0.15rem 0.5rem;
+            border-radius: 999px;
+            font-weight: 700;
+        }
+
+        button {
+            border: none;
+            border-radius: 10px;
+            padding: 0.65rem 0.9rem;
+            background: var(--accent);
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            overflow: hidden;
+            border-radius: 10px;
+            font-size: 0.92rem;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 0.65rem;
+            border-bottom: 1px solid var(--line);
+        }
+
+        th {
+            background: #f0f7fc;
+        }
+
+        a {
+            color: #005d8d;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .empty {
+            color: var(--muted);
+            font-style: italic;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: var(--panel);
+            padding: 1.5rem;
+            border-radius: 14px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 95%;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--muted);
+        }
+
+        .form-group {
+            display: grid;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        label {
+            font-weight: 600;
+            color: var(--ink);
+            font-size: 0.9rem;
+        }
+
+        input,
+        select {
+            padding: 0.6rem;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+            font-size: 0.95rem;
+            color: var(--ink);
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(0, 109, 119, 0.1);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        button.secondary {
+            background: var(--muted);
+        }
+
+        button.secondary:hover {
+            background: #37474f;
+        }
+
+        .search-bar {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .search-bar input {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .pagination {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .pagination a,
+        .pagination span {
+            padding: 0.5rem 0.7rem;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            text-decoration: none;
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .pagination a:hover {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .pagination span.current {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+
+        .pagination span.disabled {
+            color: var(--muted);
+            cursor: not-allowed;
+        }
+
+        .message {
+            padding: 0.8rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            font-weight: 500;
+            display: none;
+        }
+
+        .message.success {
+            background: #d4f4dd;
+            color: #1b5e20;
+            border: 1px solid #81c784;
+            display: block;
+        }
+
+        .message.error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef5350;
+            display: block;
+        }
+
+        @media (max-width: 760px) {
+            .panel {
+                overflow-x: auto;
+            }
+
+            table {
+                min-width: 680px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="shell">
+        <section class="header">
+            <div>
+                <h1>Welcome, {{ username }}</h1>
+                <div class="meta">
+                    Role: {{ role }}
+                    <span class="count">Documents visible: {{ document_count }}</span>
+                </div>
+            </div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                {% if role == "Admin" %}
+                <button id="addMemberButton" type="button" style="background: #2a9d8f;">+ Add Member</button>
+                {% endif %}
+                <button id="logoutButton" type="button">Logout</button>
+            </div>
+        </section>
+
+        <!-- Add Member Modal -->
+        <div id="addMemberModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Add New Member</h2>
+                    <button class="close-modal" onclick="closeAddMemberModal()">✕</button>
+                </div>
+                <div id="addMemberMessage" class="message"></div>
+                <form id="addMemberForm" onsubmit="handleAddMember(event)">
+                    <div class="form-group">
+                        <label for="username">Username *</label>
+                        <input type="text" id="username" name="username" placeholder="Enter username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password *</label>
+                        <input type="password" id="password" name="password" placeholder="Enter password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="platform_role">Platform Role *</label>
+                        <select id="platform_role" name="platform_role" required>
+                            <option value="">-- Select Role --</option>
+                            <option value="Regular">Regular User</option>
+                            <option value="Admin">Admin</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="name">Full Name *</label>
+                        <input type="text" id="name" name="name" placeholder="Enter full name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email *</label>
+                        <input type="email" id="email" name="email" placeholder="Enter email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="contact_number">Contact Number</label>
+                        <input type="text" id="contact_number" name="contact_number" placeholder="e.g., 555-123-4567">
+                    </div>
+                    <div class="form-group">
+                        <label for="age">Age</label>
+                        <input type="number" id="age" name="age" min="18" max="100" placeholder="Enter age">
+                    </div>
+                    <div class="form-group">
+                        <label for="role_id">Role ID (in organization)</label>
+                        <input type="number" id="role_id" name="role_id" placeholder="1=Admin, 2=Editor, 3=Viewer, 4=Commenter">
+                    </div>
+                    <div class="form-group">
+                        <label for="organization_id">Organization ID *</label>
+                        <input type="number" id="organization_id" name="organization_id" placeholder="Enter organization ID" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="account_status">Account Status</label>
+                        <select id="account_status" name="account_status">
+                            <option value="Active">Active</option>
+                            <option value="Suspended">Suspended</option>
+                            <option value="Pending">Pending</option>
+                        </select>
+                    </div>
+                    <div class="button-group">
+                        <button type="submit" style="background: #2a9d8f;">Create Member</button>
+                        <button type="button" class="secondary" onclick="closeAddMemberModal()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <section class="panel">
+            <h2>Member Portfolio Access</h2>
+            {% if role == "Admin" %}
+            <div class="search-bar">
+                <form style="display: flex; gap: 0.5rem; flex: 1;" onsubmit="handleSearch(event)">
+                    <input type="text" id="searchInput" name="search" placeholder="Search by name, email, or user ID..." value="{{ search }}">
+                    <button type="submit">Search</button>
+            </form>
+                <a href="/dashboard" style="padding: 0.65rem 0.9rem; background: var(--muted); color: #fff; border-radius: 10px; text-decoration: none;">Reset</a>
+            </div>
+            {% endif %}
+            {% if members %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>UserID</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>OrganizationID</th>
+                        <th>Status</th>
+                        <th>Portfolio</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for member in members %}
+                    <tr>
+                        <td>{{ member.UserID }}</td>
+                        <td>{{ member.Name }}</td>
+                        <td>{{ member.Email }}</td>
+                        <td>{{ member.OrganizationID }}</td>
+                        <td>{{ member.AccountStatus }}</td>
+                        <td><a href="/portfolio/{{ member.UserID }}">View</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% if role == "Admin" and total_pages > 1 %}
+            <div class="pagination">
+                {% if page > 1 %}
+                <a href="/dashboard?page=1{% if search %}&search={{search}}{% endif %}">First</a>
+                <a href="/dashboard?page={{ page - 1 }}{% if search %}&search={{search}}{% endif %}">← Previous</a>
+                {% else %}
+                <span class="disabled">First</span>
+                <span class="disabled">← Previous</span>
+                {% endif %}
+
+                {% for p in range(1, total_pages + 1) %}
+                    {% if p == page %}
+                    <span class="current">{{ p }}</span>
+                    {% elif p <= page + 2 and p >= page - 2 %}
+                    <a href="/dashboard?page={{ p }}{% if search %}&search={{search}}{% endif %}">{{ p }}</a>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page < total_pages %}
+                <a href="/dashboard?page={{ page + 1 }}{% if search %}&search={{search}}{% endif %}">Next →</a>
+                <a href="/dashboard?page={{ total_pages }}{% if search %}&search={{search}}{% endif %}">Last</a>
+                {% else %}
+                <span class="disabled">Next →</span>
+                <span class="disabled">Last</span>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% else %}
+            <p class="empty">No member profile is currently visible to this account.</p>
+            {% endif %}
+        </section>
+    </main>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:5000';
+
+        document.getElementById('logoutButton').addEventListener('click', async () => {
+            const response = await fetch('/logout', { method: 'POST' });
+            if (response.ok) {
+                window.location.href = '/login';
+                return;
+            }
+            alert('Logout failed. Please retry.');
+        });
+
+        document.getElementById('addMemberButton')?.addEventListener('click', () => {
+            document.getElementById('addMemberModal').classList.add('active');
+        });
+
+        function closeAddMemberModal() {
+            document.getElementById('addMemberModal').classList.remove('active');
+            document.getElementById('addMemberForm').reset();
+            document.getElementById('addMemberMessage').classList.remove('success', 'error');
+        }
+
+        async function handleAddMember(e) {
+            e.preventDefault();
+            const messageDiv = document.getElementById('addMemberMessage');
+            
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const platform_role = document.getElementById('platform_role').value;
+            const name = document.getElementById('name').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const contact_number = document.getElementById('contact_number').value.trim();
+            const age = document.getElementById('age').value;
+            const role_id = document.getElementById('role_id').value;
+            const organization_id = parseInt(document.getElementById('organization_id').value);
+            const account_status = document.getElementById('account_status').value;
+
+            if (!username || !password || !platform_role || !name || !email || !organization_id) {
+                messageDiv.classList.remove('error', 'success');
+                messageDiv.classList.add('error');
+                messageDiv.textContent = '✗ Please fill all required fields';
+                return;
+            }
+
+            messageDiv.classList.remove('error', 'success');
+            messageDiv.textContent = 'Creating member...';
+
+            try {
+                const response = await fetch(`${API_BASE}/api/members`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user: username,
+                        password: password,
+                        role: platform_role,
+                        name: name,
+                        email: email,
+                        contact_number: contact_number,
+                        age: age ? parseInt(age) : null,
+                        role_id: role_id ? parseInt(role_id) : null,
+                        organization_id: organization_id,
+                        account_status: account_status,
+                        groups: ['default'],
+                    }),
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    messageDiv.classList.remove('error');
+                    messageDiv.classList.add('success');
+                    messageDiv.textContent = `✓ Member "${name}" (ID: ${data.project_user_id}) created successfully!`;
+                    setTimeout(() => {
+                        closeAddMemberModal();
+                        location.reload();
+                    }, 1500);
+                } else {
+                    messageDiv.classList.add('error');
+                    messageDiv.textContent = `✗ Error: ${data.error || 'Failed to create member'}`;
+                }
+            } catch (error) {
+                messageDiv.classList.add('error');
+                messageDiv.textContent = `✗ Request failed: ${error.message}`;
+            }
+        }
+
+        function handleSearch(e) {
+            e.preventDefault();
+            const search = document.getElementById('searchInput').value;
+            window.location.href = `/dashboard?page=1&search=${encodeURIComponent(search)}`;
+        }
+
+        // Close modal when clicking outside
+        window.addEventListener('click', (e) => {
+            const modal = document.getElementById('addMemberModal');
+            if (e.target === modal) {
+                closeAddMemberModal();
+            }
+        });
+    </script>
+</body>
+</html>
