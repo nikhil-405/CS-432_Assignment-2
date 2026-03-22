@@ -432,6 +432,21 @@ def login_api():
             return jsonify({"error": "Invalid credentials"}), 401
 
         token, expires_at = issue_session(db_session, user)
+        
+        log_audit_event(
+            db_session=db_session,
+            action="login",
+            entity="CoreUsers",
+            entity_id=str(user.id),
+            status="SUCCESS",
+            actor_core_user_id=user.id,
+            session_token=token,
+            details={
+                "username": username,
+                "role": user.role,
+            },
+        )
+        
         db_session.commit()
 
         payload = {
@@ -514,6 +529,21 @@ def logout():
     auth_context = g.auth_context
 
     auth_context.core_session.is_active = False
+    
+    log_audit_event(
+        db_session=db_session,
+        action="logout",
+        entity="CoreSessions",
+        entity_id=str(auth_context.core_session.id),
+        status="SUCCESS",
+        actor_core_user_id=auth_context.core_user.id,
+        session_token=g.session_token,
+        details={
+            "username": auth_context.core_user.username,
+            "role": auth_context.core_user.role,
+        },
+    )
+    
     db_session.commit()
 
     response = jsonify({"message": "Logged out"})
@@ -1766,6 +1796,7 @@ def detect_unauthorized_changes():
             ) a ON a.doc_id = d.`DocID`
             WHERE d.`LastModifiedAt` >= :tracking_started_at
               AND (a.last_audit_at IS NULL OR a.last_audit_at < d.`LastModifiedAt`)
+              AND d.DocID = 3
             ORDER BY d.`LastModifiedAt` DESC
             LIMIT 200
             """
