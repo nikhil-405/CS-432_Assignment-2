@@ -125,7 +125,7 @@
         <section class="header">
             <div>
                 <h1>Member Directory</h1>
-                <div class="meta">Signed in as {{ username }} ({{ role }})</div>
+                <div class="meta">Welcome, {{ display_name }} ({{ role }})</div>
             </div>
             <div class="actions">
                 <a class="btn secondary" href="/dashboard">Back to Dashboard</a>
@@ -153,7 +153,7 @@
                         <td>{{ member.UserID }}</td>
                         <td>{{ member.Name }}</td>
                         <td>{{ member.Email }}</td>
-                        <td>{{ member.OrganizationID }}</td>
+                        <td>{{ member.OrganizationName or ('Organization ' ~ member.OrganizationID) }}</td>
                         <td>{{ member.AccountStatus }}</td>
                         <td><a href="/portfolio/{{ member.UserID }}">View</a></td>
                     </tr>

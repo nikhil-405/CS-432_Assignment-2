@@ -79,6 +79,34 @@ def _project_tables_ready():
     return True, None, None
 
 
+def _format_username_as_display_name(username: str) -> str:
+    cleaned = username.replace("_", " ").replace(".", " ").replace("-", " ").strip()
+    if not cleaned:
+        return "User"
+    return " ".join(part.capitalize() for part in cleaned.split())
+
+
+def _resolve_display_name(db_session, auth_context) -> str:
+    raw_username = str(auth_context.core_user.username or "").strip()
+    formatted_username = _format_username_as_display_name(raw_username)
+
+    if auth_context.project_user_id is not None:
+        row = db_session.execute(
+            text("SELECT `Name` FROM `Users` WHERE `UserID` = :user_id"),
+            {"user_id": auth_context.project_user_id},
+        ).mappings().first()
+        if row is not None:
+            name = str(row.get("Name") or "").strip()
+            if name:
+                if raw_username and name == raw_username:
+                    return formatted_username
+                if any(ch in name for ch in ("_", "-", ".")):
+                    return _format_username_as_display_name(name)
+                return name
+
+    return formatted_username
+
+
 def _document_from_row(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "DocID": row["DocID"],
@@ -88,7 +116,9 @@ def _document_from_row(row: dict[str, Any]) -> dict[str, Any]:
         "FilePath": row["FilePath"],
         "ConfidentialityLevel": row["ConfidentialityLevel"],
         "IsPasswordProtected": bool(row["IsPasswordProtected"]),
+        "OwnerName": row.get("OwnerName"),
         "OwnerUserID": row["OwnerUserID"],
+        "OrganizationName": row.get("OrganizationName"),
         "OrganizationID": row["OrganizationID"],
         "CreatedAt": _to_iso(row["CreatedAt"]),
         "LastModifiedAt": _to_iso(row["LastModifiedAt"]),
@@ -135,9 +165,14 @@ def _list_accessible_documents(db_session, auth_context, limit: int) -> list[dic
         rows = db_session.execute(
             text(
                 """
-                SELECT *
-                FROM `Documents`
-                ORDER BY `LastModifiedAt` DESC
+                SELECT
+                    d.*,
+                    u.`Name` AS `OwnerName`,
+                    o.`OrgName` AS `OrganizationName`
+                FROM `Documents` d
+                LEFT JOIN `Users` u ON u.`UserID` = d.`OwnerUserID`
+                LEFT JOIN `Organizations` o ON o.`OrganizationID` = d.`OrganizationID`
+                ORDER BY d.`LastModifiedAt` DESC
                 LIMIT :limit
                 """
             ),
@@ -162,6 +197,8 @@ def _list_accessible_documents(db_session, auth_context, limit: int) -> list[dic
             """
             SELECT
                 d.*,
+                u.`Name` AS `OwnerName`,
+                o.`OrgName` AS `OrganizationName`,
                 CASE WHEN d.`OwnerUserID` = :project_user_id THEN 1 ELSE 0 END AS `IsOwner`,
                 EXISTS (
                     SELECT 1 FROM `Permissions` p
@@ -182,6 +219,8 @@ def _list_accessible_documents(db_session, auth_context, limit: int) -> list[dic
                       AND p.`AccessType` = 'Delete'
                 ) AS `HasDeletePermission`
             FROM `Documents` d
+            LEFT JOIN `Users` u ON u.`UserID` = d.`OwnerUserID`
+            LEFT JOIN `Organizations` o ON o.`OrganizationID` = d.`OrganizationID`
             WHERE d.`OwnerUserID` = :project_user_id
                OR EXISTS (
                     SELECT 1 FROM `Permissions` p
@@ -217,7 +256,18 @@ def _list_accessible_documents(db_session, auth_context, limit: int) -> list[dic
 def _get_document_with_access(db_session, auth_context, doc_id: int) -> dict[str, Any] | None:
     if auth_context.core_user.role == "Admin":
         row = db_session.execute(
-            text("SELECT * FROM `Documents` WHERE `DocID` = :doc_id"),
+            text(
+                """
+                SELECT
+                    d.*,
+                    u.`Name` AS `OwnerName`,
+                    o.`OrgName` AS `OrganizationName`
+                FROM `Documents` d
+                LEFT JOIN `Users` u ON u.`UserID` = d.`OwnerUserID`
+                LEFT JOIN `Organizations` o ON o.`OrganizationID` = d.`OrganizationID`
+                WHERE d.`DocID` = :doc_id
+                """
+            ),
             {"doc_id": doc_id},
         ).mappings().first()
         if row is None:
@@ -238,6 +288,8 @@ def _get_document_with_access(db_session, auth_context, doc_id: int) -> dict[str
             """
             SELECT
                 d.*,
+                u.`Name` AS `OwnerName`,
+                o.`OrgName` AS `OrganizationName`,
                 CASE WHEN d.`OwnerUserID` = :project_user_id THEN 1 ELSE 0 END AS `IsOwner`,
                 EXISTS (
                     SELECT 1 FROM `Permissions` p
@@ -258,6 +310,8 @@ def _get_document_with_access(db_session, auth_context, doc_id: int) -> dict[str
                       AND p.`AccessType` = 'Delete'
                 ) AS `HasDeletePermission`
             FROM `Documents` d
+                LEFT JOIN `Users` u ON u.`UserID` = d.`OwnerUserID`
+                LEFT JOIN `Organizations` o ON o.`OrganizationID` = d.`OrganizationID`
             WHERE d.`DocID` = :doc_id
               AND (
                     d.`OwnerUserID` = :project_user_id
@@ -507,9 +561,12 @@ def dashboard():
         total_pages = 1
 
     document_count = _count_accessible_documents(db_session, auth_context)
+    display_name = _resolve_display_name(db_session, auth_context)
 
     return render_template(
         "dashboard.html",
+        user=display_name,
+        display_name=display_name,
         username=auth_context.core_user.username,
         role=auth_context.core_user.role,
         members=member_rows,
@@ -584,9 +641,11 @@ def members_page():
         member_rows = db_session.execute(
             text(
                 """
-                SELECT `UserID`, `Name`, `Email`, `OrganizationID`, `AccountStatus`
-                FROM `Users`
-                ORDER BY `UserID`
+                SELECT u.`UserID`, u.`Name`, u.`Email`, u.`OrganizationID`,
+                       o.`OrgName` AS `OrganizationName`, u.`AccountStatus`
+                FROM `Users` u
+                LEFT JOIN `Organizations` o ON o.`OrganizationID` = u.`OrganizationID`
+                ORDER BY u.`UserID`
                 LIMIT 300
                 """
             )
@@ -598,19 +657,24 @@ def members_page():
         member_rows = db_session.execute(
             text(
                 """
-                SELECT `UserID`, `Name`, `Email`, `OrganizationID`, `AccountStatus`
-                FROM `Users`
-                WHERE `OrganizationID` = :org_id
-                ORDER BY `UserID`
+                SELECT u.`UserID`, u.`Name`, u.`Email`, u.`OrganizationID`,
+                       o.`OrgName` AS `OrganizationName`, u.`AccountStatus`
+                FROM `Users` u
+                LEFT JOIN `Organizations` o ON o.`OrganizationID` = u.`OrganizationID`
+                WHERE u.`OrganizationID` = :org_id
+                ORDER BY u.`UserID`
                 LIMIT 300
                 """
             ),
             {"org_id": auth_context.project_organization_id},
         ).mappings().all()
 
+    display_name = _resolve_display_name(db_session, auth_context)
+
     return render_template(
         "members.html",
         username=auth_context.core_user.username,
+        display_name=display_name,
         role=auth_context.core_user.role,
         members=member_rows,
     )
@@ -627,10 +691,12 @@ def documents_page():
     auth_context = g.auth_context
     limit = min(max(int(request.args.get("limit", 100)), 1), 300)
     docs = _list_accessible_documents(db_session, auth_context, limit)
+    display_name = _resolve_display_name(db_session, auth_context)
 
     return render_template(
         "documents.html",
         username=auth_context.core_user.username,
+        display_name=display_name,
         role=auth_context.core_user.role,
         user_id=auth_context.project_user_id,
         organization_id=auth_context.project_organization_id,
@@ -647,6 +713,7 @@ def document_viewer_page(doc_id: int):
 
     db_session = g.db_session
     auth_context = g.auth_context
+    display_name = _resolve_display_name(db_session, auth_context)
 
     doc = _get_document_with_access(db_session, auth_context, doc_id)
     if doc is None:
@@ -654,6 +721,7 @@ def document_viewer_page(doc_id: int):
             return render_template(
                 "document_viewer.html",
                 username=auth_context.core_user.username,
+                display_name=display_name,
                 role=auth_context.core_user.role,
                 document=None,
                 error_message="You do not have access to this document.",
@@ -663,6 +731,7 @@ def document_viewer_page(doc_id: int):
         return render_template(
             "document_viewer.html",
             username=auth_context.core_user.username,
+            display_name=display_name,
             role=auth_context.core_user.role,
             document=None,
             error_message="Document not found.",
@@ -688,6 +757,7 @@ def document_viewer_page(doc_id: int):
     return render_template(
         "document_viewer.html",
         username=auth_context.core_user.username,
+        display_name=display_name,
         role=auth_context.core_user.role,
         document=doc,
         requires_password=(requires_password and not password_verified),
@@ -1041,6 +1111,7 @@ def create_document():
 
         now = datetime.utcnow()
         new_doc_id = next_numeric_id(db_session, "Documents", "DocID")
+        generated_file_path = f"/secure/storage/doc_{new_doc_id}.pdf"
 
         insert_sql = text(
             """
@@ -1062,7 +1133,7 @@ def create_document():
             "doc_name": str(data["DocName"]),
             "doc_size": int(data.get("DocSize", 1024)),
             "num_pages": int(data.get("NumberOfPages", 1)),
-            "file_path": str(data.get("FilePath", f"/secure/storage/doc_{new_doc_id}.pdf")),
+            "file_path": generated_file_path,
             "conf_level": str(data.get("ConfidentialityLevel", "Confidentiality Level I")),
             "protected": 1 if is_password_protected else 0,
             "owner_user_id": int(data["OwnerUserID"]),
@@ -1301,112 +1372,301 @@ def delete_document(doc_id: int):
 
 
 @bp.route("/api/permissions/grant", methods=["POST"])
-@login_required(admin_only=True)
+@login_required()
 def grant_permission():
-    ready, response, status_code = _project_tables_ready()
-    if not ready:
-        return response, status_code
+    try:
+        ready, response, status_code = _project_tables_ready()
+        if not ready:
+            return response, status_code
 
-    db_session = g.db_session
-    auth_context = g.auth_context
-    data = _payload()
+        db_session = g.db_session
+        auth_context = g.auth_context
+        data = _payload()
 
-    doc_id = data.get("doc_id")
-    user_id = data.get("user_id")
-    access_type = str(data.get("access_type", "View")).title()
+        doc_id = data.get("doc_id")
+        user_id = data.get("user_id")
+        access_type = str(data.get("access_type", "View")).title()
 
-    if access_type not in {"View", "Edit", "Delete"}:
-        return jsonify({"error": "access_type must be View, Edit, or Delete"}), 400
+        if access_type not in {"View", "Edit", "Delete"}:
+            return jsonify({"error": "access_type must be View, Edit, or Delete"}), 400
 
-    if doc_id is None or user_id is None:
-        return jsonify({"error": "doc_id and user_id are required"}), 400
+        if doc_id is None or user_id is None:
+            return jsonify({"error": "doc_id and user_id are required"}), 400
 
-    doc_id = int(doc_id)
-    user_id = int(user_id)
+        doc_id = int(doc_id)
+        user_id = int(user_id)
 
-    existing = db_session.execute(
-        text(
-            """
-            SELECT `PermissionID`
-            FROM `Permissions`
-            WHERE `DocID` = :doc_id AND `UserID` = :user_id AND `AccessType` = :access_type
-            """
-        ),
-        {"doc_id": doc_id, "user_id": user_id, "access_type": access_type},
-    ).first()
+        document_row = db_session.execute(
+            text(
+                """
+                SELECT `DocID`, `DocName`, `OwnerUserID`, `OrganizationID`
+                FROM `Documents`
+                WHERE `DocID` = :doc_id
+                """
+            ),
+            {"doc_id": doc_id},
+        ).mappings().first()
 
-    if existing is not None:
-        return jsonify({"message": "Permission already exists", "PermissionID": existing[0]}), 200
+        if document_row is None:
+            return jsonify({"error": "Document not found"}), 404
 
-    permission_id = next_numeric_id(db_session, "Permissions", "PermissionID")
-    db_session.execute(
-        text(
-            """
-            INSERT INTO `Permissions` (`PermissionID`, `DocID`, `UserID`, `AccessType`, `GrantedAt`)
-            VALUES (:permission_id, :doc_id, :user_id, :access_type, :granted_at)
-            """
-        ),
-        {
-            "permission_id": permission_id,
-            "doc_id": doc_id,
-            "user_id": user_id,
-            "access_type": access_type,
-            "granted_at": datetime.utcnow(),
-        },
-    )
+        is_admin = auth_context.core_user.role == "Admin"
+        is_owner = (
+            auth_context.project_user_id is not None
+            and int(auth_context.project_user_id) == int(document_row["OwnerUserID"])
+        )
+        if not (is_admin or is_owner):
+            return jsonify({"error": "Only the document owner or an admin can grant access"}), 403
 
-    log_audit_event(
-        db_session=db_session,
-        action="grant_permission",
-        entity="Permissions",
-        entity_id=str(permission_id),
-        status="SUCCESS",
-        actor_core_user_id=auth_context.core_user.id,
-        session_token=g.session_token,
-        details={"doc_id": doc_id, "user_id": user_id, "access_type": access_type},
-    )
+        if int(document_row["OwnerUserID"]) == user_id:
+            return jsonify({"error": "The owner already has full access"}), 400
 
-    db_session.commit()
-    return jsonify({"message": "Permission granted", "PermissionID": permission_id}), 201
+        target_user = db_session.execute(
+            text(
+                """
+                SELECT `UserID`, `OrganizationID`, `AccountStatus`
+                FROM `Users`
+                WHERE `UserID` = :user_id
+                """
+            ),
+            {"user_id": user_id},
+        ).mappings().first()
+        if target_user is None:
+            return jsonify({"error": "Target user not found"}), 404
+
+        if int(target_user["OrganizationID"]) != int(document_row["OrganizationID"]):
+            return jsonify({"error": "Access can only be granted to users in the same organization"}), 403
+
+        existing = db_session.execute(
+            text(
+                """
+                SELECT `PermissionID`
+                FROM `Permissions`
+                WHERE `DocID` = :doc_id AND `UserID` = :user_id AND `AccessType` = :access_type
+                """
+            ),
+            {"doc_id": doc_id, "user_id": user_id, "access_type": access_type},
+        ).first()
+
+        if existing is not None:
+            return jsonify({"message": "Permission already exists", "PermissionID": existing[0]}), 200
+
+        permission_id = next_numeric_id(db_session, "Permissions", "PermissionID")
+        db_session.execute(
+            text(
+                """
+                INSERT INTO `Permissions` (`PermissionID`, `DocID`, `UserID`, `AccessType`, `GrantedAt`)
+                VALUES (:permission_id, :doc_id, :user_id, :access_type, :granted_at)
+                """
+            ),
+            {
+                "permission_id": permission_id,
+                "doc_id": doc_id,
+                "user_id": user_id,
+                "access_type": access_type,
+                "granted_at": datetime.utcnow(),
+            },
+        )
+
+        log_audit_event(
+            db_session=db_session,
+            action="grant_permission",
+            entity="Permissions",
+            entity_id=str(permission_id),
+            status="SUCCESS",
+            actor_core_user_id=auth_context.core_user.id,
+            session_token=g.session_token,
+            details={
+                "doc_id": doc_id,
+                "doc_owner_user_id": int(document_row["OwnerUserID"]),
+                "user_id": user_id,
+                "access_type": access_type,
+            },
+        )
+
+        db_session.commit()
+        return jsonify({"message": "Permission granted", "PermissionID": permission_id}), 201
+
+    except (TypeError, ValueError) as e:
+        return jsonify({"error": f"Invalid input: {str(e)}"}), 400
+    except IntegrityError as e:
+        db_session.rollback()
+        return jsonify({"error": f"Database integrity error: {str(e.orig)}"}), 409
+    except Exception as e:
+        db_session.rollback()
+        return jsonify({"error": f"Failed to grant permission: {str(e)}"}), 500
+
+
+@bp.route("/api/documents/<int:doc_id>/permissions", methods=["GET"])
+@login_required()
+def list_document_permissions(doc_id: int):
+    try:
+        ready, response, status_code = _project_tables_ready()
+        if not ready:
+            return response, status_code
+
+        db_session = g.db_session
+        auth_context = g.auth_context
+
+        document_row = db_session.execute(
+            text(
+                """
+                SELECT `DocID`, `DocName`, `OwnerUserID`, `OrganizationID`
+                FROM `Documents`
+                WHERE `DocID` = :doc_id
+                """
+            ),
+            {"doc_id": doc_id},
+        ).mappings().first()
+        if document_row is None:
+            return jsonify({"error": "Document not found"}), 404
+
+        is_admin = auth_context.core_user.role == "Admin"
+        is_owner = (
+            auth_context.project_user_id is not None
+            and int(auth_context.project_user_id) == int(document_row["OwnerUserID"])
+        )
+        if not (is_admin or is_owner):
+            return jsonify({"error": "Only the document owner or an admin can view access settings"}), 403
+
+        permission_rows = db_session.execute(
+            text(
+                """
+                SELECT p.`PermissionID`, p.`DocID`, p.`UserID`, p.`AccessType`, p.`GrantedAt`,
+                       u.`Name` AS `UserName`, u.`Email` AS `UserEmail`
+                FROM `Permissions` p
+                LEFT JOIN `Users` u ON u.`UserID` = p.`UserID`
+                WHERE p.`DocID` = :doc_id
+                ORDER BY p.`GrantedAt` DESC, p.`PermissionID` DESC
+                """
+            ),
+            {"doc_id": doc_id},
+        ).mappings().all()
+
+        member_rows = db_session.execute(
+            text(
+                """
+                SELECT `UserID`, `Name`, `Email`, `AccountStatus`
+                FROM `Users`
+                WHERE `OrganizationID` = :organization_id
+                  AND `UserID` <> :owner_user_id
+                  AND `AccountStatus` = 'Active'
+                ORDER BY `UserID`
+                LIMIT 500
+                """
+            ),
+            {
+                "organization_id": int(document_row["OrganizationID"]),
+                "owner_user_id": int(document_row["OwnerUserID"]),
+            },
+        ).mappings().all()
+
+        return jsonify(
+            {
+                "document": {
+                    "DocID": int(document_row["DocID"]),
+                    "DocName": str(document_row["DocName"]),
+                    "OwnerUserID": int(document_row["OwnerUserID"]),
+                    "OrganizationID": int(document_row["OrganizationID"]),
+                },
+                "permissions": [
+                    {
+                        "PermissionID": int(row["PermissionID"]),
+                        "DocID": int(row["DocID"]),
+                        "UserID": int(row["UserID"]),
+                        "UserName": row["UserName"],
+                        "UserEmail": row["UserEmail"],
+                        "AccessType": row["AccessType"],
+                        "GrantedAt": _to_iso(row["GrantedAt"]),
+                    }
+                    for row in permission_rows
+                ],
+                "manageable_users": [
+                    {
+                        "UserID": int(row["UserID"]),
+                        "Name": row["Name"],
+                        "Email": row["Email"],
+                        "AccountStatus": row["AccountStatus"],
+                    }
+                    for row in member_rows
+                ],
+            }
+        )
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to load document permissions: {str(e)}"}), 500
 
 
 @bp.route("/api/permissions/revoke", methods=["POST"])
-@login_required(admin_only=True)
+@login_required()
 def revoke_permission():
-    ready, response, status_code = _project_tables_ready()
-    if not ready:
-        return response, status_code
+    try:
+        ready, response, status_code = _project_tables_ready()
+        if not ready:
+            return response, status_code
 
-    db_session = g.db_session
-    auth_context = g.auth_context
-    data = _payload()
+        db_session = g.db_session
+        auth_context = g.auth_context
+        data = _payload()
 
-    permission_id = data.get("permission_id")
-    if permission_id is None:
-        return jsonify({"error": "permission_id is required"}), 400
+        permission_id = data.get("permission_id")
+        if permission_id is None:
+            return jsonify({"error": "permission_id is required"}), 400
 
-    permission_id = int(permission_id)
-    deleted = db_session.execute(
-        text("DELETE FROM `Permissions` WHERE `PermissionID` = :permission_id"),
-        {"permission_id": permission_id},
-    )
+        permission_id = int(permission_id)
 
-    if deleted.rowcount == 0:
-        return jsonify({"error": "Permission not found"}), 404
+        permission_row = db_session.execute(
+            text(
+                """
+                SELECT p.`PermissionID`, p.`DocID`, p.`UserID`, p.`AccessType`,
+                       d.`OwnerUserID`, d.`OrganizationID`
+                FROM `Permissions` p
+                JOIN `Documents` d ON d.`DocID` = p.`DocID`
+                WHERE p.`PermissionID` = :permission_id
+                """
+            ),
+            {"permission_id": permission_id},
+        ).mappings().first()
 
-    log_audit_event(
-        db_session=db_session,
-        action="revoke_permission",
-        entity="Permissions",
-        entity_id=str(permission_id),
-        status="SUCCESS",
-        actor_core_user_id=auth_context.core_user.id,
-        session_token=g.session_token,
-        details={},
-    )
+        if permission_row is None:
+            return jsonify({"error": "Permission not found"}), 404
 
-    db_session.commit()
-    return jsonify({"message": "Permission revoked", "PermissionID": permission_id})
+        is_admin = auth_context.core_user.role == "Admin"
+        is_owner = (
+            auth_context.project_user_id is not None
+            and int(auth_context.project_user_id) == int(permission_row["OwnerUserID"])
+        )
+        if not (is_admin or is_owner):
+            return jsonify({"error": "Only the document owner or an admin can revoke access"}), 403
+
+        db_session.execute(
+            text("DELETE FROM `Permissions` WHERE `PermissionID` = :permission_id"),
+            {"permission_id": permission_id},
+        )
+
+        log_audit_event(
+            db_session=db_session,
+            action="revoke_permission",
+            entity="Permissions",
+            entity_id=str(permission_id),
+            status="SUCCESS",
+            actor_core_user_id=auth_context.core_user.id,
+            session_token=g.session_token,
+            details={
+                "doc_id": int(permission_row["DocID"]),
+                "user_id": int(permission_row["UserID"]),
+                "access_type": permission_row["AccessType"],
+            },
+        )
+
+        db_session.commit()
+        return jsonify({"message": "Permission revoked", "PermissionID": permission_id})
+
+    except (TypeError, ValueError) as e:
+        return jsonify({"error": f"Invalid input: {str(e)}"}), 400
+    except Exception as e:
+        db_session.rollback()
+        return jsonify({"error": f"Failed to revoke permission: {str(e)}"}), 500
 
 
 @bp.route("/api/audit/logs", methods=["GET"])

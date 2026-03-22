@@ -267,7 +267,7 @@
         <section class="header">
             <div>
                 <h1>Accessible Documents</h1>
-                <div class="meta">Signed in as {{ username }} ({{ role }})</div>
+                <div class="meta">Welcome, {{ display_name }} ({{ role }})</div>
             </div>
             <div class="actions">
                 <button class="btn" id="createDocBtn" type="button">+ Create Document</button>
@@ -297,8 +297,8 @@
                     <tr>
                         <td>{{ doc.DocID }}</td>
                         <td>{{ doc.DocName }}</td>
-                        <td>{{ doc.OwnerUserID }}</td>
-                        <td>{{ doc.OrganizationID }}</td>
+                        <td>{{ doc.OwnerName or ('User ' ~ doc.OwnerUserID) }}</td>
+                        <td>{{ doc.OrganizationName or ('Organization ' ~ doc.OrganizationID) }}</td>
                         <td>{{ doc.ConfidentialityLevel }}</td>
                         <td>
                             {% if doc.IsPasswordProtected %}
@@ -351,14 +351,23 @@
                         <label for="newNumPages">Number of Pages</label>
                         <input id="newNumPages" type="number" min="1" value="1">
                     </div>
+                    
                     <div class="form-group full">
-                        <label for="newFilePath">File Path</label>
-                        <input id="newFilePath" type="text" placeholder="/secure/storage/doc_####.pdf">
-                    </div>
-                    <div class="form-group full">
-                        <label for="newConfLevel">Confidentiality Level</label>
-                        <input id="newConfLevel" type="text" value="Confidentiality Level I">
-                    </div>
+                    <label for="newConfLevel">Confidentiality Level</label>
+                    <select id="newConfLevel">
+                        <option value="Level I">Level I</option>
+                        <option value="Level II">Level II</option>
+                        <option value="Level III">Level III</option>
+                        <option value="Level IV">Level IV</option>
+                        <option value="Level V">Level V</option>
+                        <option value="Level VI">Level VI</option>
+                        <option value="Level VII">Level VII</option>
+                        <option value="Level VIII">Level VIII</option>
+                        <option value="Level IX">Level IX</option>
+                        <option value="Level X">Level X</option>
+                    </select>
+                </div>
+
                     {% if role == "Admin" %}
                     <div class="form-group">
                         <label for="newOwnerId">Owner User ID *</label>
@@ -434,7 +443,6 @@
                 DocName: document.getElementById('newDocName').value.trim(),
                 DocSize: Number(document.getElementById('newDocSize').value),
                 NumberOfPages: Number(document.getElementById('newNumPages').value),
-                FilePath: document.getElementById('newFilePath').value.trim() || `/secure/storage/doc_{{ '{' }}id{{ '}' }}.pdf`,
                 ConfidentialityLevel: document.getElementById('newConfLevel').value.trim(),
                 IsPasswordProtected: newIsProtected.checked,
             };

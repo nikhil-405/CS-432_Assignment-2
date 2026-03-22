@@ -254,6 +254,31 @@
             color: var(--ink);
         }
 
+        .permissions-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.8rem;
+        }
+
+        .permissions-table th,
+        .permissions-table td {
+            border: 1px solid var(--line);
+            padding: 0.58rem;
+            text-align: left;
+            font-size: 0.92rem;
+        }
+
+        .permissions-table th {
+            background: #f2f8fc;
+            color: var(--muted);
+            font-weight: 700;
+        }
+
+        .permissions-table td .btn {
+            padding: 0.35rem 0.55rem;
+            font-size: 0.82rem;
+        }
+
         @media (max-width: 860px) {
             .meta-grid,
             .form-grid {
@@ -271,7 +296,7 @@
         <section class="header">
             <div>
                 <h1>Document Viewer</h1>
-                <div class="meta">Signed in as {{ username }} ({{ role }})</div>
+                <div class="meta">Welcome, {{ display_name }} ({{ role }})</div>
             </div>
             <div class="actions">
                 {% if can_delete %}
@@ -303,12 +328,12 @@
         {% elif document %}
         <section class="panel">
             <h2>{{ document.DocName }}</h2>
+            {% set normalized_conf_level = (document.ConfidentialityLevel or '')|replace('Confidentiality ', '')|trim %}
             <div class="meta-grid">
                 <div class="field"><div class="label">Doc ID</div><div class="value">{{ document.DocID }}</div></div>
-                <div class="field"><div class="label">Owner User ID</div><div class="value">{{ document.OwnerUserID }}</div></div>
-                <div class="field"><div class="label">Organization ID</div><div class="value">{{ document.OrganizationID }}</div></div>
+                <div class="field"><div class="label">Owner</div><div class="value">{{ document.OwnerName or ('User ' ~ document.OwnerUserID) }}</div></div>
+                <div class="field"><div class="label">Organization</div><div class="value">{{ document.OrganizationName or ('Organization ' ~ document.OrganizationID) }}</div></div>
                 <div class="field"><div class="label">Confidentiality</div><div class="value">{{ document.ConfidentialityLevel }}</div></div>
-                <div class="field"><div class="label">File Path</div><div class="value">{{ document.FilePath }}</div></div>
                 <div class="field"><div class="label">Your Access</div><div class="value">{% if document.IsOwner %}Owner{% elif document.CanEdit %}Edit{% else %}View{% endif %}</div></div>
             </div>
 
@@ -337,21 +362,29 @@
                         <input id="numPages" type="number" min="1" value="{{ document.NumberOfPages }}" required>
                     </div>
                     <div class="form-group">
+                        <label for="confLevel">Confidentiality Level</label>
+                        <select id="confLevel" required>
+                            <option value="Level I" {% if normalized_conf_level == "Level I" %}selected{% endif %}>Level I</option>
+                            <option value="Level II" {% if normalized_conf_level == "Level II" %}selected{% endif %}>Level II</option>
+                            <option value="Level III" {% if normalized_conf_level == "Level III" %}selected{% endif %}>Level III</option>
+                            <option value="Level IV" {% if normalized_conf_level == "Level IV" %}selected{% endif %}>Level IV</option>
+                            <option value="Level V" {% if normalized_conf_level == "Level V" %}selected{% endif %}>Level V</option>
+                            <option value="Level VI" {% if normalized_conf_level == "Level VI" %}selected{% endif %}>Level VI</option>
+                            <option value="Level VII" {% if normalized_conf_level == "Level VII" %}selected{% endif %}>Level VII</option>
+                            <option value="Level VIII" {% if normalized_conf_level == "Level VIII" %}selected{% endif %}>Level VIII</option>
+                            <option value="Level IX" {% if normalized_conf_level == "Level IX" %}selected{% endif %}>Level IX</option>
+                            <option value="Level X" {% if normalized_conf_level == "Level X" %}selected{% endif %}>Level X</option>
+                        </select>
+                    </div>
+                    <!-- <div class="form-group">
                         <label for="ownerId">Owner User ID</label>
                         <input id="ownerId" type="number" min="1" value="{{ document.OwnerUserID }}" required>
-                    </div>
-                    <div class="form-group">
+                    </div> -->
+                    <!-- <div class="form-group">
                         <label for="orgId">Organization ID</label>
                         <input id="orgId" type="number" min="1" value="{{ document.OrganizationID }}" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="confLevel">Confidentiality Level</label>
-                        <input id="confLevel" type="text" value="{{ document.ConfidentialityLevel }}" required>
-                    </div>
-                    <div class="form-group full">
-                        <label for="filePath">File Path</label>
-                        <input id="filePath" type="text" value="{{ document.FilePath }}" required>
-                    </div>
+                    </div> -->
+                    
                     <div class="form-group full checkbox">
                         <input id="isProtected" type="checkbox" {% if document.IsPasswordProtected %}checked{% endif %}>
                         <label for="isProtected" style="margin: 0;">Password protect this document</label>
@@ -372,6 +405,55 @@
             </div>
             {% endif %}
         </section>
+
+        {% if document.IsOwner or role == "Admin" %}
+        <section class="panel">
+            <h2>Manage Document Access</h2>
+            <p>As the document owner (or admin), you can grant or revoke access for members in this document's organization.</p>
+            <div id="accessMessage" class="message"></div>
+
+            <form id="grantAccessForm" style="display: grid; gap: 0.8rem;">
+                <div class="form-grid">
+                    <div class="form-group full">
+                        <label for="grantUserId">User</label>
+                        <select id="grantUserId" required>
+                            <option value="">Loading users...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="grantAccessType">Access Type</label>
+                        <select id="grantAccessType" required>
+                            <option value="View">View</option>
+                            <option value="Edit">Edit</option>
+                            <option value="Delete">Delete</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: end;">
+                        <button id="grantAccessBtn" type="submit">Grant Access</button>
+                    </div>
+                </div>
+            </form>
+
+            <div style="overflow-x: auto;">
+                <table class="permissions-table">
+                    <thead>
+                        <tr>
+                            <th>Permission ID</th>
+                            <th>User</th>
+                            <th>Access Type</th>
+                            <th>Granted At</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="permissionsBody">
+                        <tr>
+                            <td colspan="5">Loading permissions...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        {% endif %}
         {% endif %}
     </main>
 
@@ -387,10 +469,10 @@
                 DocName: document.getElementById('docName').value.trim(),
                 DocSize: Number(document.getElementById('docSize').value),
                 NumberOfPages: Number(document.getElementById('numPages').value),
-                FilePath: document.getElementById('filePath').value.trim(),
+                FilePath: "{{ document.FilePath }}",
                 ConfidentialityLevel: document.getElementById('confLevel').value.trim(),
-                OwnerUserID: Number(document.getElementById('ownerId').value),
-                OrganizationID: Number(document.getElementById('orgId').value),
+                OwnerUserID: Number('{{ document.OwnerUserID }}'),
+                OrganizationID: Number('{{ document.OrganizationID }}'),
                 IsPasswordProtected: document.getElementById('isProtected').checked,
             };
 
@@ -439,6 +521,197 @@
                 console.error('Update request error:', error);
             }
         });
+    </script>
+    {% endif %}
+
+    {% if document and not requires_password and (document.IsOwner or role == "Admin") %}
+    <script>
+        const grantAccessForm = document.getElementById('grantAccessForm');
+        const grantUserId = document.getElementById('grantUserId');
+        const grantAccessType = document.getElementById('grantAccessType');
+        const grantAccessBtn = document.getElementById('grantAccessBtn');
+        const permissionsBody = document.getElementById('permissionsBody');
+        const accessMessage = document.getElementById('accessMessage');
+
+        function showAccessMessage(text, isError = false) {
+            accessMessage.className = `message show ${isError ? 'error' : 'success'}`;
+            accessMessage.textContent = text;
+        }
+
+        function renderUsers(users) {
+            if (!Array.isArray(users) || users.length === 0) {
+                grantUserId.innerHTML = '<option value="">No active users available for this document</option>';
+                grantUserId.disabled = true;
+                grantAccessBtn.disabled = true;
+                return;
+            }
+
+            grantUserId.disabled = false;
+            grantAccessBtn.disabled = false;
+            grantUserId.innerHTML = users
+                .map((user) => {
+                    const name = user.Name || 'Unnamed user';
+                    const email = user.Email || 'no-email';
+                    return `<option value="${user.UserID}">${user.UserID} - ${name} (${email})</option>`;
+                })
+                .join('');
+        }
+
+        function renderPermissions(permissions) {
+            if (!Array.isArray(permissions) || permissions.length === 0) {
+                permissionsBody.innerHTML = '<tr><td colspan="5">No explicit permissions granted yet.</td></tr>';
+                return;
+            }
+
+            permissionsBody.innerHTML = permissions
+                .map((permission) => {
+                    const userLabel = permission.UserName
+                        ? `${permission.UserID} - ${permission.UserName}`
+                        : String(permission.UserID);
+                    const grantedAt = permission.GrantedAt || '-';
+
+                    return `
+                        <tr>
+                            <td>${permission.PermissionID}</td>
+                            <td>${userLabel}</td>
+                            <td>${permission.AccessType}</td>
+                            <td>${grantedAt}</td>
+                            <td>
+                                <button
+                                    type="button"
+                                    class="btn danger revoke-permission-btn"
+                                    data-permission-id="${permission.PermissionID}"
+                                >
+                                    Revoke
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                })
+                .join('');
+        }
+
+        async function loadPermissions() {
+            try {
+                const response = await fetch('/api/documents/{{ document.DocID }}/permissions');
+                const contentType = response.headers.get('content-type') || '';
+                const isJson = contentType.includes('application/json');
+
+                if (!isJson) {
+                    const text = await response.text();
+                    throw new Error(`Server returned non-JSON response (${response.status}): ${text.substring(0, 120)}`);
+                }
+
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to load access settings.');
+                }
+
+                renderUsers(data.manageable_users || []);
+                renderPermissions(data.permissions || []);
+            } catch (error) {
+                showAccessMessage(error.message, true);
+                permissionsBody.innerHTML = '<tr><td colspan="5">Failed to load permissions.</td></tr>';
+            }
+        }
+
+        grantAccessForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const userIdValue = Number(grantUserId.value);
+            if (!userIdValue) {
+                showAccessMessage('Please choose a user.', true);
+                return;
+            }
+
+            grantAccessBtn.disabled = true;
+            grantAccessBtn.textContent = 'Granting...';
+
+            try {
+                const response = await fetch('/api/permissions/grant', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        doc_id: Number('{{ document.DocID }}'),
+                        user_id: userIdValue,
+                        access_type: grantAccessType.value,
+                    }),
+                });
+
+                const contentType = response.headers.get('content-type') || '';
+                const isJson = contentType.includes('application/json');
+                if (!isJson) {
+                    const text = await response.text();
+                    throw new Error(`Server returned non-JSON response (${response.status}): ${text.substring(0, 120)}`);
+                }
+
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to grant permission.');
+                }
+
+                showAccessMessage(data.message || 'Permission granted successfully.');
+                await loadPermissions();
+            } catch (error) {
+                showAccessMessage(error.message, true);
+            } finally {
+                grantAccessBtn.disabled = false;
+                grantAccessBtn.textContent = 'Grant Access';
+            }
+        });
+
+        permissionsBody.addEventListener('click', async (event) => {
+            const target = event.target;
+            if (!(target instanceof HTMLElement)) {
+                return;
+            }
+
+            if (!target.classList.contains('revoke-permission-btn')) {
+                return;
+            }
+
+            const permissionId = Number(target.getAttribute('data-permission-id'));
+            if (!permissionId) {
+                showAccessMessage('Invalid permission selected.', true);
+                return;
+            }
+
+            target.textContent = 'Revoking...';
+            target.setAttribute('disabled', 'disabled');
+
+            try {
+                const response = await fetch('/api/permissions/revoke', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ permission_id: permissionId }),
+                });
+
+                const contentType = response.headers.get('content-type') || '';
+                const isJson = contentType.includes('application/json');
+                if (!isJson) {
+                    const text = await response.text();
+                    throw new Error(`Server returned non-JSON response (${response.status}): ${text.substring(0, 120)}`);
+                }
+
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to revoke permission.');
+                }
+
+                showAccessMessage(data.message || 'Permission revoked successfully.');
+                await loadPermissions();
+            } catch (error) {
+                showAccessMessage(error.message, true);
+                target.textContent = 'Revoke';
+                target.removeAttribute('disabled');
+            }
+        });
+
+        loadPermissions();
     </script>
     {% endif %}
 
