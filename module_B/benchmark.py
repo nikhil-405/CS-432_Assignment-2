@@ -4,7 +4,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from sqlalchemy import text
+from flask import Flask, request, jsonify
 from module_B.database import get_engine
+from module_B import create_app
 from module_B.query_analysis import INDEX_MAPPING
 
 
@@ -12,11 +14,11 @@ REPORT_PATH = Path(__file__).resolve().parent / "reports" / "benchmark_results.j
 
 # Default test parameters
 PARAMS = {
-    "OrganizationID": 1,
+    "OrganizationID": 10,
     "OwnerUserID": 1,
     "UserID": 1,
-    "DocID": 1,
-    "AccessType": "View",
+    "DocID": 322,
+    "AccessType": "Admin",
     "ActionType": "VIEW",
     "RoleID": 1,
     "AccountStatus": "Active"
@@ -33,6 +35,20 @@ def _measure_query(connection, statement: str, params: dict, iterations: int = 3
     start = time.perf_counter()
     for _ in range(iterations):
         connection.execute(text(statement), params).fetchall()
+    elapsed = time.perf_counter() - start
+    return (elapsed / iterations) * 1000.0
+
+
+def _measure_api(client, statement: str, params: dict, iterations: int = 30) -> float:
+    # Warmup
+    try:
+        client.post("/api/benchmark", json={"stmt": statement, "params": params})
+    except Exception:
+        pass  # Ignore warmup errors
+    
+    start = time.perf_counter()
+    for _ in range(iterations):
+        client.post("/api/benchmark", json={"stmt": statement, "params": params})
     elapsed = time.perf_counter() - start
     return (elapsed / iterations) * 1000.0
 
@@ -100,6 +116,26 @@ def resolve_params(query: str) -> tuple[str, dict]:
 def run_benchmark(iterations: int = 50, engine=None) -> dict:
     if engine is None:
         engine = get_engine()
+    
+    # Setup App for API Benchmark
+    app = create_app()
+    app.config['TESTING'] = True
+    
+    @app.route('/api/benchmark', methods=['POST'])
+    def execute_benchmark_query():
+        data = request.get_json() or {}
+        stmt = data.get("stmt")
+        parameters = data.get("params", {})
+        
+        # Use the global engine or passed engine to execute
+        with engine.connect() as conn:
+             result = conn.execute(text(stmt), parameters).fetchall()
+             # Convert to list to force execution
+             rows = [dict(r._mapping) for r in result]
+             return jsonify({"rows": len(rows)})
+
+    client = app.test_client()
+
     results = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "iterations": iterations,
@@ -107,9 +143,9 @@ def run_benchmark(iterations: int = 50, engine=None) -> dict:
     }
     
     print(f"\nRunning benchmarks ({iterations} iterations per query)...")
-    print("-" * 100)
-    print(f"{'Index Name':<35} | {'Avg (ms)':<10} | {'Rows':<8} | {'Key Used'}")
-    print("-" * 100)
+    print("-" * 120)
+    print(f"{'Index Name':<35} | {'SQL (ms)':<8} | {'API (ms)':<8} | {'Rows':<6} | {'Key Used'}")
+    print("-" * 120)
 
     with engine.connect() as conn:
         for index_name, details in INDEX_MAPPING.items():
@@ -117,7 +153,8 @@ def run_benchmark(iterations: int = 50, engine=None) -> dict:
                 stmt, params = resolve_params(query_template)
                 
                 try:
-                    avg_ms = _measure_query(conn, stmt, params, iterations)
+                    sql_ms = _measure_query(conn, stmt, params, iterations)
+                    api_ms = _measure_api(client, stmt, params, iterations)
                     explain_data = _explain(conn, stmt, params)
                     
                     rows_examined = "N/A"
@@ -132,19 +169,21 @@ def run_benchmark(iterations: int = 50, engine=None) -> dict:
                     results["benchmarks"].append({
                         "index": index_name,
                         "query": query_template,
-                        "avg_ms": round(avg_ms, 4),
+                        "avg_ms": round(sql_ms, 4),      # Kept for backward compat
+                        "sql_ms": round(sql_ms, 4),
+                        "api_ms": round(api_ms, 4),
                         "explain_rows": rows_examined,
                         "explain_key": key_used
                     })
                     
-                    print(f"{index_name:<35} | {avg_ms:10.4f} | {str(rows_examined):<8} | {key_used}")
+                    print(f"{index_name:<35} | {sql_ms:8.4f} | {api_ms:8.4f} | {str(rows_examined):<6} | {key_used}")
                     
                 except Exception as e:
-                    print(f"{index_name:<35} | ERROR      | -        | {str(e)}")
+                    print(f"{index_name:<35} | ERROR    | ERROR    | -      | {str(e)}")
                     print(f"FAILED QUERY: {stmt}")
                     print(f"PARAMS: {params}")
 
-    print("-" * 100)
+    print("-" * 120)
     
     REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
     REPORT_PATH.write_text(json.dumps(results, indent=2), encoding="utf-8")

@@ -5,8 +5,11 @@ Wrapper script to run index verification from module_B.
 import sys
 import os
 
-# Ensure we can import module_B
-sys.path.append(os.getcwd())
+# Ensure we can import module_B from parent directory
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
 
 try:
     from module_B.database import get_engine
