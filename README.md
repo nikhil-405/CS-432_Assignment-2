@@ -1,5 +1,10 @@
 # CS-432_Assignment-2
 
+
+#### Video Links:
+- Module A: https://iitgnacin-my.sharepoint.com/:v:/g/personal/23110098_iitgn_ac_in/IQDk3Hc0fdpXQ6mc-07hgOFXAa25TNn9BMVw7RqMH-lmrDE?e=2fFPy1
+- Module B: https://youtu.be/f-q7l8fy8fo 
+
 ## Document CRUD UI Operations
 
 This application provides comprehensive UI support for all CRUD (Create, Read, Update, Delete) operations on documents through a secure, permission-based interface.
