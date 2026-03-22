@@ -125,11 +125,13 @@
             width: 100%;
             height: 100%;
             background-color: rgba(0, 0, 0, 0.5);
+            overflow-y: auto;
+            padding: 1rem;
         }
 
         .modal.active {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: center;
         }
 
@@ -140,6 +142,9 @@
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
             max-width: 500px;
             width: 95%;
+            max-height: calc(100vh - 2rem);
+            overflow-y: auto;
+            margin: auto 0;
         }
 
         .modal-header {
@@ -374,11 +379,25 @@
                     </div>
                     <div class="form-group">
                         <label for="role_id">Role ID (in organization)</label>
-                        <input type="number" id="role_id" name="role_id" placeholder="1=Admin, 2=Editor, 3=Viewer, 4=Commenter">
+                        <select id="role_id" name="role_id">
+                            <option value="">-- Select Role (Optional) --</option>
+                            {% for role_option in role_options %}
+                            <option value="{{ role_option.RoleID }}">
+                                {{ role_option.RoleName }} (ID: {{ role_option.RoleID }})
+                            </option>
+                            {% endfor %}
+                        </select>
                     </div>
                     <div class="form-group">
-                        <label for="organization_id">Organization ID *</label>
-                        <input type="number" id="organization_id" name="organization_id" placeholder="Enter organization ID" required>
+                        <label for="organization_id">Organization *</label>
+                        <select id="organization_id" name="organization_id" required>
+                            <option value="">-- Select Organization --</option>
+                            {% for organization in organization_options %}
+                            <option value="{{ organization.OrganizationID }}">
+                                {{ organization.OrgName }} (ID: {{ organization.OrganizationID }})
+                            </option>
+                            {% endfor %}
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="account_status">Account Status</label>

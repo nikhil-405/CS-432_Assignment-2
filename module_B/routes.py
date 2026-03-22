@@ -534,6 +534,8 @@ def dashboard():
     search = request.args.get("search", "", type=str).strip()
     per_page = 10
     offset = (page - 1) * per_page
+    role_options = []
+    organization_options = []
 
     if auth_context.core_user.role == "Admin":
         # Build search query
@@ -556,6 +558,26 @@ def dashboard():
         params["offset"] = offset
         member_rows = db_session.execute(text(base_query), params).mappings().all()
         total_pages = (total_count + per_page - 1) // per_page
+
+        role_options = db_session.execute(
+            text(
+                """
+                SELECT `RoleID`, `RoleName`
+                FROM `Roles`
+                ORDER BY `RoleID`
+                """
+            )
+        ).mappings().all()
+
+        organization_options = db_session.execute(
+            text(
+                """
+                SELECT `OrganizationID`, `OrgName`
+                FROM `Organizations`
+                ORDER BY `OrganizationID`
+                """
+            )
+        ).mappings().all()
     else:
         member_rows = []
         total_pages = 1
@@ -570,6 +592,8 @@ def dashboard():
         username=auth_context.core_user.username,
         role=auth_context.core_user.role,
         members=member_rows,
+        role_options=role_options,
+        organization_options=organization_options,
         document_count=document_count,
         page=page,
         total_pages=total_pages,
