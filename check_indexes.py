@@ -1,22 +1,24 @@
 #!/usr/bin/env python3
-from module_B.database import get_engine
-from sqlalchemy import text
+"""
+Wrapper script to run index verification from module_B.
+"""
+import sys
+import os
 
-engine = get_engine()
+# Ensure we can import module_B
+sys.path.append(os.getcwd())
 
-with engine.connect() as conn:
-    # Get all indexes in the database
-    query = text("""
-        SELECT INDEX_NAME, TABLE_NAME, COLUMN_NAME, SEQ_IN_INDEX
-        FROM INFORMATION_SCHEMA.STATISTICS
-        WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME IN ('documents', 'permissions', 'logs', 'users')
-        ORDER BY TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX
-    """)
+try:
+    from module_B.database import get_engine
+    from module_B.query_analysis import check_indexes
     
-    result = conn.execute(query)
-    rows = result.fetchall()
-    
-    print("Existing Indexes in Database:")
-    for row in rows:
-        print(f"  {row[0]} ({row[1]}): {row[2]} (pos {row[3]})")
+    if __name__ == "__main__":
+        print("Running Index Check from module_B...")
+        engine = get_engine()
+        check_indexes(engine)
+
+except ImportError as e:
+    print(f"Error importing module_B: {e}")
+    print("Please run this script from the project root.")
+except Exception as e:
+    print(f"Error: {e}")

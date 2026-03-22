@@ -11,3 +11,4 @@ module_B/reports/userpasswords_seed_zk9jm55e.csv
 module_B/reports/
 module_B/logs/audit.log
 module_B/logs/
+.venv

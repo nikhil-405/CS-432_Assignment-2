@@ -234,7 +234,7 @@ def compare_queries(engine):
 
 def main():
     parser = argparse.ArgumentParser(description="Query Analysis and Index Verification Tool")
-    parser.add_argument("command", choices=["check", "apply", "mapping", "compare"],
+    parser.add_argument("command", choices=["check", "apply", "mapping", "compare", "benchmark"],
                         help="Command to execute")
     args = parser.parse_args()
     
@@ -256,6 +256,10 @@ def main():
         
         elif args.command == "compare":
             compare_queries(engine)
+
+        elif args.command == "benchmark":
+            from .benchmark import run_benchmark
+            run_benchmark()
     
     finally:
         pass  # SQLAlchemy handles connection cleanup
